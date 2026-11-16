@@ -51,7 +51,9 @@ Turnuva eklemek için `data.js` içindeki `COMPETITIONS` listesine ESPN lig kodu
 3. **Güç etkisi:** %0 tamamen şanstır. Yükseldikçe güçlü takım hafif avantaj alır
    (daha hızlı oyuncular, biraz daha geniş kale vb.) ama zayıf takım yine kazanabilir.
    Güç **videoda gösterilmez**. Hesaplanan denge sadece panelde ("Arka plan güç dengesi") görünür.
-4. **Video dili:** Türkçe, English, Español, Português, Deutsch, Français, Italiano.
+4. **Video dili:** Varsayılan **English**. Videodaki tüm yazılar, YouTube başlığı/açıklaması ve takvimden gelen alt başlık
+   (ör. "Champions League • Wed 25 Nov, 20:00 UK", saat İngiltere saatiyle) İngilizce olur.
+   İstersen Türkçe, Español, Português, Deutsch, Français, Italiano da seçilebilir.
    **Videodaki metinleri düzenle** bölümünden her yazıyı değiştirebilirsin. Buna gol bandı, kurtarış/direk yazıları,
    mod adları, bitiş ekranı, YouTube başlığı ve açıklaması dahil. Değişiklikler o dil için tarayıcıda saklanır
    ve "varsayılana döndür" ile sıfırlanır. `{home}`, `{away}`, `{score}`, `{mode}`, `{team}`, `{n}` gibi

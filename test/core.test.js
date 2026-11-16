@@ -82,7 +82,7 @@ test('dil paketleri: her dilde tüm metinler var, yer tutucular korunuyor', asyn
   }
   const T = makeTexts('en', { goal: 'GOL GOL!' });
   assert.equal(T.t('goal'), 'GOL GOL!');
-  assert.equal(T.t('wins', { team: 'ARSENAL' }), 'ARSENAL WIN');
+  assert.equal(T.t('wins', { team: 'ARSENAL' }), 'ARSENAL TO WIN');
   assert.equal(makeTexts('tr').upper('mini'), 'MİNİ');
 });
 

@@ -11,22 +11,22 @@ const TIMEOUT = 12_000;
 
 // group: arayüzde gruplama · base: puan durumundan Elo tahmini için lig taban puanı
 export const COMPETITIONS = [
-  { id: 'tur.1', name: 'Süper Lig', group: 'Türkiye', national: false, base: 1590 },
-  { id: 'eng.1', name: 'Premier League', group: 'Avrupa ligleri', national: false, base: 1810 },
-  { id: 'esp.1', name: 'LaLiga', group: 'Avrupa ligleri', national: false, base: 1760 },
-  { id: 'ita.1', name: 'Serie A', group: 'Avrupa ligleri', national: false, base: 1745 },
-  { id: 'ger.1', name: 'Bundesliga', group: 'Avrupa ligleri', national: false, base: 1740 },
-  { id: 'fra.1', name: 'Ligue 1', group: 'Avrupa ligleri', national: false, base: 1700 },
-  { id: 'por.1', name: 'Liga Portugal', group: 'Avrupa ligleri', national: false, base: 1650 },
-  { id: 'uefa.champions', name: 'Şampiyonlar Ligi', group: 'UEFA kupaları', national: false },
-  { id: 'uefa.europa', name: 'Avrupa Ligi', group: 'UEFA kupaları', national: false },
-  { id: 'uefa.europa.conf', name: 'Konferans Ligi', group: 'UEFA kupaları', national: false },
-  { id: 'fifa.world', name: 'Dünya Kupası', group: 'Milli takımlar', national: true },
-  { id: 'fifa.worldq.uefa', name: 'Dünya Kupası Elemeleri (Avrupa)', group: 'Milli takımlar', national: true },
-  { id: 'uefa.nations', name: 'UEFA Uluslar Ligi', group: 'Milli takımlar', national: true },
-  { id: 'uefa.euro', name: 'EURO', group: 'Milli takımlar', national: true },
-  { id: 'uefa.euroq', name: 'EURO Elemeleri', group: 'Milli takımlar', national: true },
-  { id: 'fifa.friendly', name: 'Hazırlık Maçları', group: 'Milli takımlar', national: true },
+  { id: 'tur.1', name: 'Süper Lig', nameEn: 'Süper Lig', group: 'Türkiye', national: false, base: 1590 },
+  { id: 'eng.1', name: 'Premier League', nameEn: 'Premier League', group: 'Avrupa ligleri', national: false, base: 1810 },
+  { id: 'esp.1', name: 'LaLiga', nameEn: 'LaLiga', group: 'Avrupa ligleri', national: false, base: 1760 },
+  { id: 'ita.1', name: 'Serie A', nameEn: 'Serie A', group: 'Avrupa ligleri', national: false, base: 1745 },
+  { id: 'ger.1', name: 'Bundesliga', nameEn: 'Bundesliga', group: 'Avrupa ligleri', national: false, base: 1740 },
+  { id: 'fra.1', name: 'Ligue 1', nameEn: 'Ligue 1', group: 'Avrupa ligleri', national: false, base: 1700 },
+  { id: 'por.1', name: 'Liga Portugal', nameEn: 'Liga Portugal', group: 'Avrupa ligleri', national: false, base: 1650 },
+  { id: 'uefa.champions', name: 'Şampiyonlar Ligi', nameEn: 'Champions League', group: 'UEFA kupaları', national: false },
+  { id: 'uefa.europa', name: 'Avrupa Ligi', nameEn: 'Europa League', group: 'UEFA kupaları', national: false },
+  { id: 'uefa.europa.conf', name: 'Konferans Ligi', nameEn: 'Conference League', group: 'UEFA kupaları', national: false },
+  { id: 'fifa.world', name: 'Dünya Kupası', nameEn: 'World Cup', group: 'Milli takımlar', national: true },
+  { id: 'fifa.worldq.uefa', name: 'Dünya Kupası Elemeleri (Avrupa)', nameEn: 'World Cup Qualifiers', group: 'Milli takımlar', national: true },
+  { id: 'uefa.nations', name: 'UEFA Uluslar Ligi', nameEn: 'Nations League', group: 'Milli takımlar', national: true },
+  { id: 'uefa.euro', name: 'EURO', nameEn: 'EURO', group: 'Milli takımlar', national: true },
+  { id: 'uefa.euroq', name: 'EURO Elemeleri', nameEn: 'EURO Qualifiers', group: 'Milli takımlar', national: true },
+  { id: 'fifa.friendly', name: 'Hazırlık Maçları', nameEn: 'International Friendly', group: 'Milli takımlar', national: true },
 ];
 const COMP = Object.fromEntries(COMPETITIONS.map((c) => [c.id, c]));
 
@@ -242,7 +242,7 @@ export async function fixtures(date, comps = COMPETITIONS.map((c) => c.id)) {
           const side = (ha) => comp.competitors?.find((x) => x.homeAway === ha);
           const team = (x) => (x ? { ...mapTeam(x.team, c), score: x.score ?? null } : null);
           return {
-            id: e.id, date: e.date, league: COMP[c].name, leagueId: c, national: COMP[c].national,
+            id: e.id, date: e.date, league: COMP[c].name, leagueEn: COMP[c].nameEn, leagueId: c, national: COMP[c].national,
             status: e.status?.type?.description || '', state: e.status?.type?.state || '',
             venue: comp.venue?.fullName || '', home: team(side('home')), away: team(side('away')),
           };

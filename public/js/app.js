@@ -279,13 +279,34 @@ function renderFixtures() {
     }).join('')}`).join('');
 }
 
+// Videodaki alt başlık videonun dilinde olur. İngilizce videoda saat İngiltere saatiyle (UK) yazılır.
+let lastFixture = null;
+let lastAutoSubtitle = '';
+function setFixtureSubtitle(m) {
+  const lang = $('#lang').value;
+  const locale = LANGS[lang]?.locale || 'en-GB';
+  let text;
+  if (lang === 'en') {
+    const d = new Date(m.date);
+    const day = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' });
+    const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
+    text = `${m.leagueEn || m.league} • ${day}, ${time} UK`;
+  } else {
+    const when = new Date(m.date).toLocaleString(locale, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+    text = `${lang === 'tr' ? m.league : m.leagueEn || m.league} • ${when}`;
+  }
+  lastFixture = m;
+  lastAutoSubtitle = text;
+  $('#subtitle').value = text;
+  drawPoster();
+}
+
 fxList.addEventListener('click', async (e) => {
   const b = e.target.closest('.fx-item');
   if (!b) return;
   const m = fixtures[+b.dataset.k];
   fxList.querySelectorAll('.fx-item').forEach((x) => x.classList.toggle('active', x === b));
-  const when = new Date(m.date).toLocaleString('tr-TR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
-  $('#subtitle').value = `${m.league} • ${when}`;
+  setFixtureSubtitle(m);
   const side = (t) => ({ ...t, league: m.league, national: m.national });
   await Promise.all([selectTeam(0, side(m.home)), selectTeam(1, side(m.away))]);
   setStatus(`Seçildi: ${m.home.name} - ${m.away.name}`);
@@ -307,7 +328,8 @@ influence.addEventListener('input', () => {
 // ---------------------------------------------------------------- dil ve metinler
 const langSel = $('#lang');
 langSel.innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
-langSel.value = LANGS[storage.get('lang', 'tr')] ? storage.get('lang', 'tr') : 'tr';
+const savedLang = storage.get('videoLang', 'en');
+langSel.value = LANGS[savedLang] ? savedLang : 'en';
 
 const overridesFor = (lang) => storage.get('texts.' + lang, {});
 const currentTexts = () => makeTexts(langSel.value, overridesFor(langSel.value));
@@ -348,7 +370,8 @@ function buildTextEditor() {
 }
 
 langSel.addEventListener('change', () => {
-  storage.set('lang', langSel.value);
+  storage.set('videoLang', langSel.value);
+  if (lastFixture && $('#subtitle').value === lastAutoSubtitle) setFixtureSubtitle(lastFixture);
   buildTextEditor();
   drawPoster();
 });
@@ -514,7 +537,7 @@ function shortsText(s, match, modeId, T) {
 function addResult({ blob, ext, match, s, seed, modeId, texts }) {
   const url = URL.createObjectURL(blob);
   const [a, b] = match.score;
-  const file = `tahmin_${slug(s.A.name)}_${slug(s.B.name)}_${a}-${b}_${modeId}_${texts.lang}.${ext}`;
+  const file = `prediction_${slug(s.A.name)}_${slug(s.B.name)}_${a}-${b}_${modeId}_${texts.lang}.${ext}`;
   const { title, desc } = shortsText(s, match, modeId, texts);
   const div = document.createElement('div');
   div.className = 'result';

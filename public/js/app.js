@@ -1,7 +1,7 @@
 // Arayüz: takım arama, logo/renk, güç hesabı, önizleme ve video kaydı.
 import { Match } from './match.js';
 import { MODES, getMode } from './modes/index.js';
-import { renderFrame } from './render.js';
+import { renderFrame, renderThumbnail } from './render.js';
 import { Sound } from './audio.js';
 import { Recorder, pickMime } from './recorder.js';
 import { buildTeamAssets, loadImage, extractColors } from './assets.js';
@@ -510,7 +510,7 @@ async function playOnce({ record, modeId: forcedMode }) {
     return null;
   }
   const result = { blob, ext: recorder.ext, match, s, seed, modeId, texts: assets.texts };
-  addResult(result);
+  await addResult(result);
   setStatus(`Bitti: ${s.A.name} ${match.score[0]}-${match.score[1]} ${s.B.name}`);
   return result;
 }
@@ -525,30 +525,60 @@ function slug(s) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ı/g, 'i').replace(/[^a-zA-Z0-9]+/g, '').slice(0, 24) || 'takim';
 }
 
-function shortsText(s, match, modeId, T) {
-  const [a, b] = match.score;
+// Başlık/açıklamada skor YOK (izleyici videoyu izlesin). Eski şablonda {score} kalmışsa boş geçilir.
+function shortsText(s, modeId, T) {
   const tags = ['#' + slug(s.A.name).toLowerCase(), '#' + slug(s.B.name).toLowerCase()].join(' ');
-  const vars = { home: s.A.name, away: s.B.name, score: `${a}-${b}`, mode: T.t('mode.' + modeId), subtitle: s.subtitle, tags };
+  const vars = { home: s.A.name, away: s.B.name, score: '', mode: T.t('mode.' + modeId), subtitle: s.subtitle, tags };
   const title = T.t('ytTitle', vars);
   const desc = T.t('ytDesc', vars).split('\n').filter((l) => l.trim()).join('\n');
-  return { title, desc };
+  return { title: title.replace(/\s{2,}/g, ' ').trim(), desc };
 }
 
-function addResult({ blob, ext, match, s, seed, modeId, texts }) {
+// Kapak görseli (JPEG, 1080×1920). YouTube kapak sınırı 2 MB; kalite buna göre ayarlanır.
+async function makeThumbnail(s, texts) {
+  await document.fonts.ready;
+  const c = document.createElement('canvas');
+  c.width = 1080;
+  c.height = 1920;
+  const assets = { teams: [buildTeamAssets(s.A), buildTeamAssets(s.B)], texts };
+  renderThumbnail(c.getContext('2d'), assets, { subtitle: s.subtitle, texts });
+  for (const q of [0.92, 0.85, 0.75]) {
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', q));
+    if (blob.size < 1.9e6) return blob;
+  }
+  return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.6));
+}
+
+function downloadBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+}
+
+async function addResult({ blob, ext, match, s, seed, modeId, texts }) {
   const url = URL.createObjectURL(blob);
   const [a, b] = match.score;
-  const file = `prediction_${slug(s.A.name)}_${slug(s.B.name)}_${a}-${b}_${modeId}_${texts.lang}.${ext}`;
-  const { title, desc } = shortsText(s, match, modeId, texts);
+  // Dosya adında skor YOK: YouTube başlığı varsayılan olarak dosya adından doldurur, skor sızmasın.
+  const base = `${slug(s.A.name)}_vs_${slug(s.B.name)}_prediction_${modeId}_${seed}`;
+  const file = `${base}.${ext}`;
+  const { title, desc } = shortsText(s, modeId, texts);
+  const thumb = await makeThumbnail(s, texts);
+  const thumbUrl = URL.createObjectURL(thumb);
   const div = document.createElement('div');
   div.className = 'result';
   div.innerHTML = `
-    <video src="${url}" controls muted playsinline></video>
+    <div class="media">
+      <video src="${url}" controls muted playsinline></video>
+      <a href="${thumbUrl}" download="${base}_cover.jpg" title="Kapak görseli"><img class="thumb" src="${thumbUrl}" alt="Kapak" /></a>
+    </div>
     <div>
       <h3>${escapeHtml(s.A.name)} ${a}-${b} ${escapeHtml(s.B.name)}</h3>
       <div class="meta">${escapeHtml(getMode(modeId).meta.name)} · ${LANGS[texts.lang].label} · seed ${seed} · ${(blob.size / 1e6).toFixed(1)} MB · ${ext.toUpperCase()}</div>
       <textarea readonly>${escapeHtml(title + '\n\n' + desc)}</textarea>
       <div class="row">
-        <a class="btn" href="${url}" download="${file}">⬇ İndir</a>
+        <a class="btn" href="${url}" download="${file}">⬇ Video</a>
+        <a class="btn alt" href="${thumbUrl}" download="${base}_cover.jpg">🖼 Kapak</a>
         <button class="copy">Başlık/açıklamayı kopyala</button>
       </div>
     </div>`;
@@ -561,10 +591,8 @@ function addResult({ blob, ext, match, s, seed, modeId, texts }) {
     }
   });
   $('#results').prepend(div);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = file;
-  link.click();
+  downloadBlob(blob, file);
+  setTimeout(() => downloadBlob(thumb, `${base}_cover.jpg`), 600);
 }
 
 async function guarded(fn) {
@@ -583,6 +611,15 @@ async function guarded(fn) {
 
 $('#preview').addEventListener('click', () => guarded(() => playOnce({ record: false })));
 $('#record').addEventListener('click', () => guarded(() => playOnce({ record: true })));
+$('#cover').addEventListener('click', () =>
+  guarded(async () => {
+    const s = settings();
+    const texts = currentTexts();
+    const blob = await makeThumbnail(s, texts);
+    downloadBlob(blob, `${slug(s.A.name)}_vs_${slug(s.B.name)}_prediction_cover.jpg`);
+    setStatus(`Kapak indirildi: ${s.A.name} - ${s.B.name}`);
+  }),
+);
 $('#batch').addEventListener('click', () =>
   guarded(async () => {
     const order = MODES.map((m) => m.meta.id);

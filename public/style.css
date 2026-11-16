@@ -133,7 +133,8 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   grid-template-columns: 110px 1fr;
   gap: 12px;
 }
-.result video { width: 110px; aspect-ratio: 9/16; border-radius: 10px; background: #000; }
+.result .media { display: flex; flex-direction: column; gap: 6px; }
+.result video, .result .thumb { width: 110px; aspect-ratio: 9/16; border-radius: 10px; background: #000; object-fit: cover; display: block; }
 .result h3 { margin: 0 0 4px; font-size: 16px; }
 .result .meta { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
 .result textarea {
@@ -142,6 +143,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 }
 .result .row { flex-wrap: wrap; margin-top: 6px; }
 .result a.btn { text-decoration: none; background: var(--primary); color: #fff; padding: 8px 12px; border-radius: 10px; font-weight: 700; font-size: 13px; }
+.result a.btn.alt { background: #2a6df4; }
 
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; padding: 12px 16px; }

@@ -331,3 +331,136 @@ export function renderFrame(ctx, match, assets, opts = {}) {
 }
 
 export { OUTRO };
+
+// ------------------------------------------------------------------ kapak görseli
+// Shorts kapağı (1080×1920). Skor YOK: izleyici merak edip videoyu izlesin.
+export function renderThumbnail(ctx, assets, opts = {}) {
+  const T = opts.texts || assets.texts;
+  const [A, B] = assets.teams;
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+
+  // çapraz ikiye bölünmüş zemin: üst-sol A rengi, alt-sağ B rengi
+  ctx.fillStyle = '#05070f';
+  ctx.fillRect(0, 0, W, H);
+  const half = (team, pts, gx0, gy0, gx1, gy1) => {
+    const g = ctx.createLinearGradient(gx0, gy0, gx1, gy1);
+    g.addColorStop(0, rgba(team.glow, 0.95));
+    g.addColorStop(1, rgba(team.glow, 0.25));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.closePath();
+    ctx.fill();
+  };
+  half(A, [[0, 0], [W, 0], [W, 760], [0, 1240]], 0, 0, W * 0.6, 1100);
+  half(B, [[0, 1240], [W, 760], [W, H], [0, H]], W, H, W * 0.4, 820);
+  // kontrast için karartma + ışık
+  const dark = ctx.createLinearGradient(0, 0, 0, H);
+  dark.addColorStop(0, 'rgba(5,7,15,0.55)');
+  dark.addColorStop(0.5, 'rgba(5,7,15,0.25)');
+  dark.addColorStop(1, 'rgba(5,7,15,0.5)');
+  ctx.fillStyle = dark;
+  ctx.fillRect(0, 0, W, H);
+  // ortadaki çapraz ışık şeridi
+  ctx.save();
+  ctx.translate(W / 2, 1000);
+  ctx.rotate(Math.atan2(-480, W));
+  const band = ctx.createLinearGradient(0, -70, 0, 70);
+  band.addColorStop(0, 'rgba(255,215,0,0)');
+  band.addColorStop(0.5, 'rgba(255,215,0,0.55)');
+  band.addColorStop(1, 'rgba(255,215,0,0)');
+  ctx.fillStyle = band;
+  ctx.fillRect(-W, -70, W * 2, 140);
+  ctx.restore();
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // üst etiket + alt başlık
+  const label = T.t('badge');
+  fitFont(ctx, label, 820, 54, '400', DISPLAY);
+  const lw = ctx.measureText(label).width + 80;
+  roundRect(ctx, W / 2 - lw / 2, 110, lw, 84, 42);
+  ctx.fillStyle = '#ffd700';
+  ctx.fill();
+  ctx.fillStyle = '#111';
+  ctx.fillText(label, W / 2, 154);
+  if (opts.subtitle) {
+    fitFont(ctx, opts.subtitle, 940, 40, '700', BODY);
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.fillText(opts.subtitle, W / 2, 245);
+  }
+
+  // büyük soru
+  const q = T.t('thumbTitle');
+  fitFont(ctx, q, 980, 170, '400', DISPLAY);
+  ctx.lineWidth = 16;
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+  ctx.strokeText(q, W / 2, 410);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(q, W / 2, 410);
+
+  // logolar + isimler
+  const logo = (team, x, y) => {
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 50;
+    drawSprite(ctx, team.sprite, x, y, 215);
+    ctx.restore();
+  };
+  logo(A, 330, 760);
+  logo(B, W - 330, 1250);
+  const name = (team, x, y, align) => {
+    const n = upper(team.name);
+    fitFont(ctx, n, 560, 64, '900', BODY);
+    ctx.textAlign = align;
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    ctx.strokeText(n, x, y);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(n, x, y);
+  };
+  name(A, 330, 1020, 'center');
+  name(B, W - 330, 1510, 'center');
+
+  // VS
+  ctx.save();
+  ctx.translate(W / 2 + 170, 960);
+  ctx.rotate(-0.12);
+  ctx.textAlign = 'center';
+  ctx.font = `400 230px ${DISPLAY}`;
+  ctx.lineWidth = 18;
+  ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+  ctx.strokeText('VS', 0, 0);
+  ctx.fillStyle = '#ffd700';
+  ctx.fillText('VS', 0, 0);
+  ctx.restore();
+
+  // gizli skor tabelası "? - ?"
+  ctx.textAlign = 'center';
+  const sy = 1680;
+  roundRect(ctx, W / 2 - 300, sy - 115, 600, 230, 40);
+  ctx.fillStyle = 'rgba(5,7,15,0.85)';
+  ctx.fill();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = '#ffd700';
+  ctx.stroke();
+  ctx.font = `400 190px ${DISPLAY}`;
+  ctx.fillStyle = '#ffd700';
+  ctx.fillText('?', W / 2 - 150, sy + 8);
+  ctx.fillText('?', W / 2 + 150, sy + 8);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('-', W / 2, sy + 4);
+
+  // alt çağrı
+  const cta = T.t('thumbCta');
+  fitFont(ctx, cta, 960, 54, '900', BODY);
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+  ctx.strokeText(cta, W / 2, 1855);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(cta, W / 2, 1855);
+  ctx.restore();
+}

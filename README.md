@@ -60,7 +60,11 @@ Turnuva eklemek için `data.js` içindeki `COMPETITIONS` listesine ESPN lig kodu
    yer tutucular otomatik doldurulur.
 5. **Önizle** ile izle, **Kaydet ve indir** ile videoyu al.
    **4 formatın hepsini üret** aynı maç için 4 farklı video üretir.
-6. Sonuç kartında seçili dilde hazır **Shorts başlığı ve açıklaması** (hashtag'li) var, tek tıkla kopyalanır.
+6. Kayıt bitince video ile birlikte **kapak görseli** (1080×1920 JPEG) de iner. Sonuç kartında
+   hazır **Shorts başlığı ve açıklaması** (hashtag'li) var, tek tıkla kopyalanır.
+   **Skor bilerek hiçbir yerde yazmaz:** kapakta "? – ?" var; başlıkta, açıklamada ve dosya adında skor yok.
+   İzleyici skoru görmek için videoyu sonuna kadar izlemeli. Kayıt yapmadan kapak almak için **Sadece kapak indir** butonu var.
+   Kapak metinleri ("WHO WINS?", "WATCH TILL THE END 👀") metin düzenleyiciden değiştirilebilir.
 
 > **Seed:** Aynı seed + aynı ayarlar = birebir aynı maç ve skor. Boş bırakılırsa her seferinde rastgele seçilir. Kullanılan seed sonuç kartında yazar.
 

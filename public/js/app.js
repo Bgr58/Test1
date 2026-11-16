@@ -17,8 +17,10 @@ const statusEl = $('#status');
 const teams = [...document.querySelectorAll('.team')].map((el) => ({
   el,
   logo: null, // HTMLImageElement
-  candidates: [],
   eloSource: '',
+  selected: null, // açılır listeden seçilen takım
+  suggest: [],
+  active: -1,
 }));
 
 let sound = null;
@@ -55,6 +57,10 @@ function teamStatus(i, text) {
   $('.t-status', teams[i].el).textContent = text;
 }
 
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 async function setLogo(i, src, { autoColors = false } = {}) {
   const el = teams[i].el;
   try {
@@ -74,67 +80,132 @@ async function setLogo(i, src, { autoColors = false } = {}) {
   drawPoster();
 }
 
-async function applyCandidate(i, c) {
-  const el = teams[i].el;
-  $('.t-name', el).value = c.name;
-  if (c.colors.length) {
-    $('.t-c1', el).value = c.colors[0];
-    $('.t-c2', el).value = c.colors[1] || (c.colors[0].toLowerCase() === '#ffffff' ? '#222222' : '#ffffff');
-  }
-  if (c.badge) await setLogo(i, c.badge, { autoColors: !c.colors.length });
+// ESPN rengi anlamsızsa (yok, iki renk aynı ya da ikisi de çok koyu) logodan çıkar
+function weakColors(t) {
+  if (t.knownColors) return false;
+  if (!t.color || !t.color2) return true;
+  if (t.color === t.color2) return true;
+  const dark = (h) => parseInt(h.slice(1, 3), 16) + parseInt(h.slice(3, 5), 16) + parseInt(h.slice(5, 7), 16) < 90;
+  return dark(t.color) && dark(t.color2);
 }
 
-async function searchTeam(i) {
+// Açılır listeden / fikstürden seçilen takımı uygula
+async function selectTeam(i, t) {
   const el = teams[i].el;
-  const name = $('.t-name', el).value.trim();
-  if (!name) return;
-  const sel = $('.t-candidates', el);
-  teamStatus(i, 'Aranıyor…');
-  const [teamRes, eloRes] = await Promise.allSettled([
-    fetch(`/api/team?name=${encodeURIComponent(name)}`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status)))),
-    fetch(`/api/elo?name=${encodeURIComponent(name)}`).then((r) => (r.ok ? r.json() : null)),
-  ]);
+  teams[i].selected = t;
+  $('.t-name', el).value = t.name;
+  $('.t-league', el).textContent = t.league ? `${t.league}${t.national ? ' · milli takım' : ''}` : '';
+  if (t.color) $('.t-c1', el).value = t.color;
+  if (t.color2) $('.t-c2', el).value = t.color2;
+  closeSuggest(i);
+  teamStatus(i, 'Güç puanı alınıyor…');
+  const logoP = t.logo ? setLogo(i, t.logo, { autoColors: weakColors(t) }) : Promise.resolve();
+  const eloP = fetch(`/api/elo?id=${encodeURIComponent(t.id)}&national=${t.national ? 1 : 0}&name=${encodeURIComponent(t.name)}`)
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+  const [, elo] = await Promise.all([logoP, eloP]);
+  applyElo(i, elo, t.name);
+}
 
-  const msgs = [];
-  if (teamRes.status === 'fulfilled' && teamRes.value.teams?.length) {
-    const list = teamRes.value.teams;
-    teams[i].candidates = list;
-    sel.innerHTML = list.map((c, k) => `<option value="${k}">${escapeHtml(c.name)} — ${escapeHtml(c.league || c.country)}</option>`).join('');
-    sel.hidden = list.length < 2;
-    await applyCandidate(i, list[0]);
-    msgs.push(`Logo/renk: ${list[0].name}`);
-  } else {
-    sel.hidden = true;
-    msgs.push('Logo bulunamadı (yükleyebilirsin)');
-  }
-
-  let elo = eloRes.status === 'fulfilled' ? eloRes.value : null;
+function applyElo(i, elo, name) {
+  const el = teams[i].el;
   if (!elo) {
-    // sunucu yoksa tarayıcı tarafında yaklaşık tablo
     const fb = matchClub(name, fallbackList());
-    if (fb) elo = { club: fb.club, elo: fb.elo, source: 'yaklaşık tablo' };
+    if (fb) elo = { elo: fb.elo, source: 'yaklaşık tablo' };
   }
   if (elo) {
     $('.t-elo', el).value = elo.elo;
     teams[i].eloSource = elo.source;
-    msgs.push(`Elo ${elo.elo} (${elo.source}${elo.club ? ': ' + elo.club : ''})`);
+    teamStatus(i, `Güç: Elo ${elo.elo} (${elo.source})`);
   } else {
     teams[i].eloSource = '';
-    msgs.push('Elo bulunamadı — elle girebilirsin');
+    teamStatus(i, 'Güç puanı bulunamadı — elle girebilirsin.');
   }
-  teamStatus(i, msgs.join(' · '));
   drawPoster();
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// ---------------------------------------------------------------- açılır takım listesi
+function closeSuggest(i) {
+  const box = $('.t-suggest', teams[i].el);
+  box.hidden = true;
+  box.innerHTML = '';
+  teams[i].suggest = [];
+  teams[i].active = -1;
+}
+
+function renderSuggest(i, list, q) {
+  const box = $('.t-suggest', teams[i].el);
+  teams[i].suggest = list;
+  teams[i].active = list.length ? 0 : -1;
+  if (!list.length) {
+    box.innerHTML = `<div class="sg-empty">“${escapeHtml(q)}” bulunamadı. Adı böyle bırakıp logoyu kendin yükleyebilirsin.</div>`;
+  } else {
+    box.innerHTML = list
+      .map((t, k) => `<button type="button" class="sg-item${k === 0 ? ' active' : ''}" data-k="${k}">
+        ${t.logo ? `<img src="${t.logo}" alt="" loading="lazy" />` : '<span class="sg-noimg"></span>'}
+        <span class="sg-name">${escapeHtml(t.name)}</span>
+        <span class="sg-league">${escapeHtml(t.national ? 'Milli takım' : t.league)}</span>
+      </button>`)
+      .join('');
+  }
+  box.hidden = false;
+}
+
+let suggestTimer = 0;
+let suggestSeq = 0;
+async function querySuggest(i) {
+  const q = $('.t-name', teams[i].el).value.trim();
+  teams[i].selected = null;
+  $('.t-league', teams[i].el).textContent = '';
+  if (q.length < 2) return closeSuggest(i);
+  const seq = ++suggestSeq;
+  try {
+    const r = await fetch(`/api/teams?q=${encodeURIComponent(q)}&limit=12`);
+    const j = await r.json();
+    if (seq !== suggestSeq) return; // daha yeni bir arama var
+    if (!r.ok) throw new Error(j.error || r.status);
+    renderSuggest(i, j.teams || [], q);
+  } catch (e) {
+    if (seq !== suggestSeq) return;
+    const box = $('.t-suggest', teams[i].el);
+    box.innerHTML = `<div class="sg-empty">Takım listesi alınamadı (${escapeHtml(e.message)}). İnternet bağlantını kontrol et.</div>`;
+    box.hidden = false;
+  }
+}
+
+function moveActive(i, d) {
+  const t = teams[i];
+  if (!t.suggest?.length) return;
+  t.active = (t.active + d + t.suggest.length) % t.suggest.length;
+  [...$('.t-suggest', t.el).querySelectorAll('.sg-item')].forEach((b, k) => {
+    b.classList.toggle('active', k === t.active);
+    if (k === t.active) b.scrollIntoView({ block: 'nearest' });
+  });
 }
 
 teams.forEach((t, i) => {
   const el = t.el;
-  $('.t-search', el).addEventListener('click', () => searchTeam(i));
-  $('.t-name', el).addEventListener('keydown', (e) => e.key === 'Enter' && searchTeam(i));
-  $('.t-candidates', el).addEventListener('change', (e) => applyCandidate(i, t.candidates[+e.target.value]));
+  const input = $('.t-name', el);
+  input.addEventListener('input', () => {
+    clearTimeout(suggestTimer);
+    suggestTimer = setTimeout(() => querySuggest(i), 180);
+  });
+  input.addEventListener('focus', () => input.value.trim().length >= 2 && !t.selected && querySuggest(i));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveActive(i, 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(i, -1); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (t.suggest?.[t.active]) selectTeam(i, t.suggest[t.active]);
+    } else if (e.key === 'Escape') closeSuggest(i);
+  });
+  input.addEventListener('blur', () => setTimeout(() => closeSuggest(i), 150));
+  $('.t-suggest', el).addEventListener('mousedown', (e) => {
+    const b = e.target.closest('.sg-item');
+    if (!b) return;
+    e.preventDefault();
+    selectTeam(i, t.suggest[+b.dataset.k]);
+  });
   $('.t-file', el).addEventListener('change', (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -143,8 +214,87 @@ teams.forEach((t, i) => {
     reader.readAsDataURL(f);
   });
   for (const s of ['.t-c1', '.t-c2', '.t-elo', '.t-value']) $(s, el).addEventListener('input', drawPoster);
-  $('.t-name', el).addEventListener('change', drawPoster);
+  input.addEventListener('change', drawPoster);
 });
+
+// ---------------------------------------------------------------- takvim / günün maçları
+const fxDate = $('#fxDate');
+const fxComp = $('#fxComp');
+const fxList = $('#fxList');
+const localDay = (d = new Date()) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+fxDate.value = localDay();
+let fixtures = [];
+
+async function loadCompetitions() {
+  try {
+    const j = await (await fetch('/api/competitions')).json();
+    const groups = {};
+    for (const c of j.competitions) (groups[c.group] ||= []).push(c);
+    fxComp.innerHTML = '<option value="">Tüm turnuvalar</option>' +
+      Object.entries(groups).map(([g, cs]) => `<optgroup label="${escapeHtml(g)}">${cs.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')}</optgroup>`).join('');
+  } catch { /* liste yüklenemezse "tümü" kalır */ }
+}
+
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+}
+
+async function loadFixtures() {
+  fxList.innerHTML = '<div class="muted">Maçlar yükleniyor…</div>';
+  const comps = fxComp.value ? `&comps=${fxComp.value}` : '';
+  try {
+    // ESPN günleri ABD saatine göre ayırır; yerel güne denk gelen maçlar için önceki/sonraki günü de al
+    const day = fxDate.value;
+    const d = new Date(day + 'T12:00:00');
+    const days = [-1, 0, 1].map((k) => localDay(new Date(d.getTime() + k * 86400000)));
+    const res = await Promise.all(days.map((x) => fetch(`/api/fixtures?date=${x}${comps}`).then((r) => r.json())));
+    const seen = new Set();
+    fixtures = res.flatMap((r) => r.matches || [])
+      .filter((m) => localDay(new Date(m.date)) === day && !seen.has(m.id) && seen.add(m.id))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    renderFixtures();
+  } catch (e) {
+    fxList.innerHTML = `<div class="muted">Fikstür alınamadı: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderFixtures() {
+  if (!fixtures.length) {
+    fxList.innerHTML = '<div class="muted">Bu tarihte seçili turnuvalarda maç yok.</div>';
+    return;
+  }
+  const byLeague = {};
+  for (const m of fixtures) (byLeague[m.league] ||= []).push(m);
+  fxList.innerHTML = Object.entries(byLeague).map(([lg, ms]) => `
+    <div class="fx-league">${escapeHtml(lg)}</div>
+    ${ms.map((m) => {
+      const k = fixtures.indexOf(m);
+      const score = m.state === 'pre' ? fmtTime(m.date) : `${m.home.score ?? ''}-${m.away.score ?? ''}`;
+      return `<button type="button" class="fx-item" data-k="${k}" title="${escapeHtml(m.venue)}">
+        <span class="fx-time">${escapeHtml(score)}</span>
+        <span class="fx-team">${m.home.logo ? `<img src="${m.home.logo}" alt="" loading="lazy" />` : ''}${escapeHtml(m.home.name)}</span>
+        <span class="fx-vs">–</span>
+        <span class="fx-team">${m.away.logo ? `<img src="${m.away.logo}" alt="" loading="lazy" />` : ''}${escapeHtml(m.away.name)}</span>
+      </button>`;
+    }).join('')}`).join('');
+}
+
+fxList.addEventListener('click', async (e) => {
+  const b = e.target.closest('.fx-item');
+  if (!b) return;
+  const m = fixtures[+b.dataset.k];
+  fxList.querySelectorAll('.fx-item').forEach((x) => x.classList.toggle('active', x === b));
+  const when = new Date(m.date).toLocaleString('tr-TR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  $('#subtitle').value = `${m.league} • ${when}`;
+  const side = (t) => ({ ...t, league: m.league, national: m.national });
+  await Promise.all([selectTeam(0, side(m.home)), selectTeam(1, side(m.away))]);
+  setStatus(`Seçildi: ${m.home.name} - ${m.away.name}`);
+});
+fxDate.addEventListener('change', loadFixtures);
+fxComp.addEventListener('change', loadFixtures);
+$('#fxToday').addEventListener('click', () => { fxDate.value = localDay(); loadFixtures(); });
+$('#fxPrev').addEventListener('click', () => { fxDate.value = localDay(new Date(new Date(fxDate.value + 'T12:00').getTime() - 86400000)); loadFixtures(); });
+$('#fxNext').addEventListener('click', () => { fxDate.value = localDay(new Date(new Date(fxDate.value + 'T12:00').getTime() + 86400000)); loadFixtures(); });
 
 // ---------------------------------------------------------------- ayarlar
 const influence = $('#influence');
@@ -427,6 +577,13 @@ else if (!pickMime().includes('mp4')) setStatus('Not: Bu tarayıcı MP4 kaydedem
 
 document.fonts.ready.then(drawPoster);
 drawPoster();
-// Açılışta varsayılan takımları otomatik ara
-searchTeam(0);
-searchTeam(1);
+// Açılış: turnuva listesi, bugünün maçları ve varsayılan takımlar
+loadCompetitions().then(loadFixtures);
+(async () => {
+  for (const [i, q] of [[0, 'Real Madrid'], [1, 'Barcelona']]) {
+    try {
+      const j = await (await fetch(`/api/teams?q=${encodeURIComponent(q)}&limit=1`)).json();
+      if (j.teams?.[0] && !teams[i].selected) await selectTeam(i, j.teams[0]);
+    } catch { /* çevrimdışı: varsayılan renklerle devam */ }
+  }
+})();

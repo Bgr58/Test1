@@ -85,3 +85,14 @@ test('dil paketleri: her dilde tüm metinler var, yer tutucular korunuyor', asyn
   assert.equal(T.t('wins', { team: 'ARSENAL' }), 'ARSENAL WIN');
   assert.equal(makeTexts('tr').upper('mini'), 'MİNİ');
 });
+
+test('eloratings ayrıştırma ve milli takım eşleştirme', async () => {
+  const { parseEloratings, matchNational } = await import('../data.js');
+  const world = '1\t1\tES\t2258\n2\t2\tEN\t2182\n20\t20\tTR\t1750\n30\t30\tKR\t1700\n';
+  const names = 'ES\tSpain\nEN\tEngland\nTR\tTurkey\nKR\tSouth Korea\tKorea Republic\n';
+  const list = parseEloratings(world, names);
+  assert.equal(list.length, 4);
+  assert.equal(matchNational('Türkiye', list)?.elo, 1750);
+  assert.equal(matchNational('Korea Republic', list)?.elo, 1700);
+  assert.equal(matchNational('Spain', list)?.elo, 2258);
+});

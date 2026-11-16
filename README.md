@@ -7,21 +7,45 @@ Sonuç 1080×1920 dikey video (MP4, desteklenmezse WebM) olarak iner.
 
 ## Kurulum ve çalıştırma
 
-Gereken tek şey **Node.js 18+**. Hiçbir npm paketi kurulmaz.
+Gereken tek şey **Node.js 18+** (<https://nodejs.org>, LTS sürümü). Hiçbir npm paketi kurulmaz.
+
+**Windows:** Klasördeki `baslat.bat` dosyasına çift tıkla. Tarayıcı kendiliğinden açılır.
+Açılan siyah pencereyi kapatma; araç o pencere açıkken çalışır.
+
+**Terminalden** (her işletim sistemi):
 
 ```bash
-npm start
+node server.js
 ```
 
 Ardından **Chrome** veya **Edge** ile <http://localhost:3000> adresini aç.
 Kayıt sırasında sekme açık ve görünür kalmalı (tarayıcı arka plandaki sekmeyi yavaşlatır).
 
+## Veri kaynakları (hepsi ücretsiz, anahtar gerekmez)
+
+| Ne | Kaynak |
+| --- | --- |
+| Takım listesi, logolar, forma renkleri, günün maçları | ESPN'in herkese açık site API'si |
+| Kulüp gücü | [ClubElo](http://clubelo.com). Ulaşılamazsa lig puan durumundan tahmin edilir |
+| Milli takım gücü | [eloratings.net](https://www.eloratings.net) |
+
+Kapsam: **Süper Lig**, **Premier League, LaLiga, Serie A, Bundesliga, Ligue 1, Liga Portugal**,
+**Şampiyonlar Ligi, Avrupa Ligi, Konferans Ligi** ve **milli takımlar** (Dünya Kupası, elemeler,
+Uluslar Ligi, EURO, hazırlık maçları; yaklaşık 200 ülke).
+Turnuva eklemek için `data.js` içindeki `COMPETITIONS` listesine ESPN lig kodunu eklemen yeterli.
+
+> ESPN'in bu API'si resmî olarak belgelenmemiştir; ileride değişirse `data.js` güncellenmelidir.
+> Büyük kulüplerin forma renkleri `data.js` içindeki `CLUB_COLORS` tablosundan gelir.
+> Diğer takımlarda ESPN rengi kullanılır, o da anlamsızsa renk logodan çıkarılır.
+
 ## Kullanım
 
-1. Ev sahibi ve deplasman takımının adını yazıp **Bul**'a bas.
-   - **Logo + renkler:** TheSportsDB'den gelir. Birden fazla eşleşme varsa listeden seç.
-   - Logo bulunamazsa **Logo yükle** ile kendin yükle. Renkler logodan otomatik çıkarılır, istersen elle değiştir.
-   - **Elo puanı:** [ClubElo](http://clubelo.com)'dan (açık veri) çekilir. İnternet yoksa yaklaşık bir yedek tablo kullanılır. Elle de girebilirsin.
+1. **📅 Günün maçları:** Tarihi seç (‹ › ile gün değiştir), istersen turnuvayı filtrele ve bir maça tıkla.
+   İki takım, logolar, renkler, güç puanları ve alt başlık (ör. "Şampiyonlar Ligi • 25 Kasım 23:00") otomatik dolar.
+   - Ya da takım kutusuna yazmaya başla (ör. "fener", "galata", "almanya"). **Açılır listeden** seç.
+     Türkçe ülke adları da çalışır.
+   - Listede olmayan bir takım için adı yaz ve **Logo yükle** ile logoyu kendin ekle.
+     Renkler logodan otomatik çıkarılır, istersen elle değiştir.
    - **Kadro değeri (M€):** İsteğe bağlı. İki takım için de girilirse güç hesabına katılır.
 2. **Oyun formatı:** 4 mod var. **Rastgele** seçeneği aynı formatı arka arkaya vermez.
 3. **Güç etkisi:** %0 tamamen şanstır. Yükseldikçe güçlü takım hafif avantaj alır
@@ -67,7 +91,9 @@ Tüm sesler Web Audio ile sentezlenir. Ses dosyası kullanılmadığı için tel
 ## Yapı
 
 ```
-server.js               statik sunucu + /api/team, /api/elo, /api/img proxy
+server.js               statik sunucu + API uçları (/api/teams, /api/fixtures, /api/elo, /api/img)
+data.js                 ESPN / ClubElo / eloratings veri katmanı, önbellek, kulüp renkleri
+baslat.bat              Windows için çift tıkla başlat
 public/index.html       arayüz
 public/js/app.js        arayüz mantığı, kayıt akışı
 public/js/match.js      maç akışı (sabit adımlı, deterministik; Node'da da çalışır)
@@ -83,10 +109,9 @@ test/                   birim testleri (npm test)
 ## Notlar
 
 - Transfermarkt'ın açık API'si yoktur ve sitesinin kazınması kullanım şartlarına aykırıdır.
-  Bu yüzden otomatik güç kaynağı olarak açık veri olan ClubElo kullanılır.
+  Bu yüzden otomatik güç kaynağı olarak açık veri olan ClubElo ve eloratings.net kullanılır.
   Kadro değerini istersen elle girebilirsin.
-- ClubElo yalnızca Avrupa kulüplerini kapsar. Milli takımlar ve diğer ligler için Elo'yu elle gir
-  (ör. eloratings.net değerleri) ya da boş bırak (eşit güç).
-- TheSportsDB'nin ücretsiz anahtarı (`3`) varsayılandır. Kendi anahtarın varsa:
-  `SPORTSDB_KEY=xxx npm start`. Port değiştirmek için: `PORT=8080 npm start`.
+- Güç puanının nereden geldiği takım kutusunun altında yazar (ClubElo / eloratings.net / puan durumu tahmini).
+  Her zaman elle değiştirebilirsin.
+- Port değiştirmek için: Windows PowerShell'de `$env:PORT=8080; node server.js`, Mac/Linux'ta `PORT=8080 node server.js`.
 - Logolar kulüplerin tescilli markalarıdır. Videolarda kullanırken YouTube politikalarını göz önünde bulundur.

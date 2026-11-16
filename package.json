@@ -1,0 +1,13 @@
+{
+  "name": "mac-tahmin-shorts",
+  "version": "1.0.0",
+  "description": "YouTube Shorts için fizik tabanlı futbol skor tahmini videoları üreten araç",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js",
+    "simulate": "node scripts/simulate.js"
+  },
+  "engines": { "node": ">=18" }
+}

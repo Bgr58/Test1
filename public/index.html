@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Maç Tahmin Shorts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="top">
+    <h1>⚽ Maç Tahmin Shorts</h1>
+    <p>Takımları yaz, oyun formatını seç, fizik oyunu skoru belirlesin. 1080×1920 video olarak indir.</p>
+  </header>
+
+  <main class="layout">
+    <section class="panel">
+      <div class="teams">
+        <div class="team" data-team="0">
+          <div class="team-head"><span class="tag">EV SAHİBİ</span></div>
+          <div class="row">
+            <input class="t-name" type="text" placeholder="Takım adı (ör. Real Madrid)" value="Real Madrid" />
+            <button class="t-search">Bul</button>
+          </div>
+          <select class="t-candidates" hidden></select>
+          <div class="row logo-row">
+            <img class="t-logo" alt="" />
+            <label class="file">Logo yükle<input class="t-file" type="file" accept="image/*" /></label>
+          </div>
+          <div class="row colors">
+            <label>Renk 1 <input class="t-c1" type="color" value="#ffffff" /></label>
+            <label>Renk 2 <input class="t-c2" type="color" value="#febe10" /></label>
+          </div>
+          <div class="row">
+            <label class="grow">Elo puanı <input class="t-elo" type="number" min="800" max="2400" step="1" placeholder="otomatik" /></label>
+            <label class="grow">Kadro değeri (M€) <input class="t-value" type="number" min="0" step="1" placeholder="isteğe bağlı" /></label>
+          </div>
+          <small class="t-status muted"></small>
+        </div>
+
+        <div class="team" data-team="1">
+          <div class="team-head"><span class="tag">DEPLASMAN</span></div>
+          <div class="row">
+            <input class="t-name" type="text" placeholder="Takım adı (ör. Barcelona)" value="Barcelona" />
+            <button class="t-search">Bul</button>
+          </div>
+          <select class="t-candidates" hidden></select>
+          <div class="row logo-row">
+            <img class="t-logo" alt="" />
+            <label class="file">Logo yükle<input class="t-file" type="file" accept="image/*" /></label>
+          </div>
+          <div class="row colors">
+            <label>Renk 1 <input class="t-c1" type="color" value="#a50044" /></label>
+            <label>Renk 2 <input class="t-c2" type="color" value="#004d98" /></label>
+          </div>
+          <div class="row">
+            <label class="grow">Elo puanı <input class="t-elo" type="number" min="800" max="2400" step="1" placeholder="otomatik" /></label>
+            <label class="grow">Kadro değeri (M€) <input class="t-value" type="number" min="0" step="1" placeholder="isteğe bağlı" /></label>
+          </div>
+          <small class="t-status muted"></small>
+        </div>
+      </div>
+
+      <div class="settings">
+        <label>Oyun formatı
+          <select id="mode">
+            <option value="random">🎲 Rastgele (her seferinde farklı)</option>
+            <option value="ring">Dönen Halka</option>
+            <option value="plinko">Plinko Kalesi</option>
+            <option value="football">Mini Futbol</option>
+            <option value="race">Engelli Parkur</option>
+          </select>
+        </label>
+        <label>Oyun süresi
+          <select id="duration">
+            <option value="30">30 sn</option>
+            <option value="45" selected>45 sn (önerilen)</option>
+            <option value="60">60 sn</option>
+          </select>
+        </label>
+        <label class="span2">Güç etkisi: <b id="influenceVal">40%</b>
+          <input id="influence" type="range" min="0" max="100" value="40" />
+          <small class="muted">0% = tamamen şans. Yüksek değerde güçlü takım daha avantajlı ama yine de kaybedebilir.</small>
+        </label>
+        <label class="check"><input id="home" type="checkbox" checked /> Ev sahibi avantajı</label>
+        <label class="check"><input id="showStrength" type="checkbox" checked /> Güç yüzdesini göster</label>
+        <label class="check"><input id="sound" type="checkbox" checked /> Ses ve efektler</label>
+        <label class="check"><input id="monitor" type="checkbox" checked /> Kayıtta sesi duy</label>
+        <label class="span2">Alt başlık
+          <input id="subtitle" type="text" placeholder="ör. La Liga • 26 Ekim 22:00" value="" />
+        </label>
+        <label class="span2">Seed (aynı seed = aynı maç)
+          <div class="row"><input id="seed" type="text" placeholder="boş = rastgele" /><button id="dice" title="Rastgele seed">🎲</button></div>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="preview" class="secondary">▶ Önizle</button>
+        <button id="record" class="primary">⏺ Kaydet ve indir</button>
+        <button id="batch" class="secondary">🎬 4 formatın hepsini üret</button>
+        <button id="stop" class="danger" disabled>⏹ Durdur</button>
+      </div>
+      <p id="status" class="muted"></p>
+      <div id="results"></div>
+    </section>
+
+    <section class="stage">
+      <div class="phone"><canvas id="canvas" width="1080" height="1920"></canvas></div>
+      <small class="muted center">Kayıt sırasında bu sekmeyi açık ve görünür tut.</small>
+    </section>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

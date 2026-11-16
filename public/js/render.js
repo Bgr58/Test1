@@ -1,0 +1,333 @@
+// Video karesi çizimi: arka plan, skor tabelası, oyun alanı, efektler, giriş/çıkış ekranları.
+import { W, H, ARENA, INTRO, OUTRO } from './match.js';
+import { drawSprite, roundRect, fitFont, rgba, luminance } from './draw.js';
+
+// Türkçe karakter içeren isimlerde tr-TR, diğerlerinde standart büyük harf (MADRID, MADRİD değil)
+const upper = (s) => (/[çğıöşüİ]/i.test(s) ? s.toLocaleUpperCase('tr-TR') : s.toUpperCase());
+const textOn = (hex) => (luminance(hex) > 0.5 ? '#111111' : '#ffffff');
+
+const DISPLAY = 'Anton, Impact, "Arial Black", sans-serif';
+const BODY = 'Inter, "Segoe UI", Arial, sans-serif';
+
+const ease = (t) => 1 - (1 - Math.min(1, Math.max(0, t))) ** 3;
+const easeBack = (t) => {
+  t = Math.min(1, Math.max(0, t));
+  const c = 1.7;
+  return 1 + (c + 1) * (t - 1) ** 3 + c * (t - 1) ** 2;
+};
+
+function drawBackground(ctx, assets) {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#0a0f24');
+  g.addColorStop(1, '#05070f');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  const [a, b] = assets.teams;
+  for (const [t, x] of [[a, 0], [b, W]]) {
+    const rg = ctx.createRadialGradient(x, 300, 20, x, 300, 900);
+    rg.addColorStop(0, rgba(t.glow, 0.45));
+    rg.addColorStop(1, rgba(t.glow, 0));
+    ctx.fillStyle = rg;
+    ctx.fillRect(0, 0, W, H);
+  }
+  // hafif çizgi deseni
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+  ctx.lineWidth = 2;
+  for (let i = -H; i < W; i += 60) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i + H, H);
+    ctx.stroke();
+  }
+}
+
+function drawTitle(ctx, opts) {
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const label = 'MAÇ TAHMİNİ';
+  ctx.font = `400 46px ${DISPLAY}`;
+  const w = ctx.measureText(label).width + 110;
+  roundRect(ctx, W / 2 - w / 2, 62, w, 70, 35);
+  ctx.fillStyle = '#ffd700';
+  ctx.fill();
+  ctx.fillStyle = '#111';
+  ctx.fillText('⚽ ' + label, W / 2, 99);
+  if (opts.subtitle) {
+    fitFont(ctx, opts.subtitle, 900, 34, '600', BODY);
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fillText(opts.subtitle, W / 2, 170);
+  }
+}
+
+function drawLogo(ctx, team, x, y, r, pulse = 0) {
+  const s = 1 + pulse * 0.25;
+  ctx.save();
+  ctx.shadowColor = rgba(team.glow, 0.9);
+  ctx.shadowBlur = 40 + pulse * 40;
+  drawSprite(ctx, team.sprite, x, y, r * s);
+  ctx.restore();
+}
+
+function drawScoreboard(ctx, match, assets, opts) {
+  const [A, B] = assets.teams;
+  const pulse = match.fx.scorePulse;
+  const cy = 330;
+  drawLogo(ctx, A, 200, cy, 100, pulse[0]);
+  drawLogo(ctx, B, W - 200, cy, 100, pulse[1]);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#fff';
+  for (const [t, x] of [[A, 200], [B, W - 200]]) {
+    const name = upper(t.name);
+    fitFont(ctx, name, 330, 40, '800', BODY);
+    ctx.fillText(name, x, cy + 140);
+  }
+
+  // skor
+  const sc = match.score;
+  for (const [i, x] of [[0, 430], [1, W - 430]]) {
+    const s = 1 + pulse[i] * 0.5;
+    ctx.save();
+    ctx.translate(x, cy);
+    ctx.scale(s, s);
+    ctx.font = `400 150px ${DISPLAY}`;
+    ctx.fillStyle = pulse[i] > 0 ? '#ffd700' : '#ffffff';
+    ctx.fillText(String(sc[i]), 0, 6);
+    ctx.restore();
+  }
+  ctx.font = `400 90px ${DISPLAY}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillText(':', W / 2, cy);
+
+  // dakika
+  const min = match.minute;
+  const label = match.phase === 'intro' ? "0'" : match.phase === 'play' ? `${min}'` : 'MS';
+  roundRect(ctx, W / 2 - 75, cy + 105, 150, 58, 29);
+  ctx.fillStyle = match.phase === 'play' ? '#e63946' : 'rgba(255,255,255,0.15)';
+  ctx.fill();
+  ctx.font = `800 36px ${BODY}`;
+  ctx.fillStyle = '#fff';
+  ctx.fillText(label, W / 2, cy + 135);
+
+  // ilerleme çubuğu
+  const bw = 820;
+  const bx = W / 2 - bw / 2;
+  const by = 520;
+  roundRect(ctx, bx, by, bw, 10, 5);
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.fill();
+  roundRect(ctx, bx, by, Math.max(10, bw * match.playProgress), 10, 5);
+  ctx.fillStyle = '#ffd700';
+  ctx.fill();
+
+  if (opts.showStrength) {
+    const pA = opts.pA ?? 0.5;
+    const y = 555;
+    ctx.font = `700 24px ${BODY}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.textAlign = 'left';
+    ctx.fillText(`GÜÇ  %${Math.round(pA * 100)}`, bx, y);
+    ctx.textAlign = 'right';
+    ctx.fillText(`%${Math.round((1 - pA) * 100)}  GÜÇ`, bx + bw, y);
+    ctx.textAlign = 'center';
+    ctx.fillText(opts.strengthSource || '', W / 2, y);
+  }
+}
+
+function drawFooter(ctx, match, assets) {
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `400 40px ${DISPLAY}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fillText(`${match.mode.meta.name.toLocaleUpperCase('tr-TR')} • ${match.mode.meta.hint}`, W / 2, ARENA.y + ARENA.h + 70);
+  ctx.font = `700 34px ${BODY}`;
+  ctx.fillStyle = '#ffd700';
+  ctx.fillText('Sence skor ne olur? Yorumlara yaz 👇', W / 2, ARENA.y + ARENA.h + 130);
+}
+
+function drawBanner(ctx, fx) {
+  const b = fx.banner;
+  if (!b) return;
+  const k = b.age / b.life;
+  const inT = easeBack(b.age / 0.35);
+  const out = k > 0.8 ? 1 - (k - 0.8) / 0.2 : 1;
+  const y = ARENA.y + ARENA.h / 2;
+  ctx.save();
+  ctx.globalAlpha = out;
+  ctx.translate(W / 2, y);
+  ctx.rotate(-0.06);
+  ctx.scale(inT, inT);
+  ctx.fillStyle = rgba(b.color, 0.92);
+  ctx.fillRect(-W, -120, W * 2, 240);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `400 170px ${DISPLAY}`;
+  const ink = textOn(b.color);
+  ctx.lineWidth = 14;
+  ctx.strokeStyle = ink === '#ffffff' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.6)';
+  ctx.strokeText('GOOOL!', 0, -25);
+  ctx.fillStyle = ink;
+  ctx.fillText('GOOOL!', 0, -25);
+  const name = upper(b.name);
+  fitFont(ctx, name, 900, 52, '900', BODY);
+  ctx.fillStyle = ink;
+  ctx.fillText(name, 0, 80);
+  ctx.restore();
+}
+
+function drawIntro(ctx, match, assets, opts) {
+  const t = match.phaseT;
+  const [A, B] = assets.teams;
+  ctx.fillStyle = `rgba(5,7,15,${0.82 - ease((t - INTRO + 0.5) / 0.5) * 0.82})`;
+  ctx.fillRect(0, 0, W, H);
+  const fade = 1 - ease((t - INTRO + 0.45) / 0.45);
+  ctx.save();
+  ctx.globalAlpha = fade;
+  const ay = 900;
+  const byy = 1250;
+  const ax = -300 + (300 + 260) * easeBack(t / 0.7);
+  const bx = W + 300 - (300 + 260) * easeBack((t - 0.15) / 0.7);
+  drawLogo(ctx, A, ax, ay, 150);
+  drawLogo(ctx, B, bx, byy, 150);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const vs = easeBack((t - 0.5) / 0.4);
+  ctx.save();
+  ctx.translate(W / 2, (ay + byy) / 2);
+  ctx.scale(vs, vs);
+  ctx.font = `400 140px ${DISPLAY}`;
+  ctx.fillStyle = '#ffd700';
+  ctx.fillText('VS', 0, 0);
+  ctx.restore();
+  ctx.fillStyle = '#fff';
+  fitFont(ctx, upper(A.name), 560, 62, '900', BODY);
+  ctx.textAlign = 'left';
+  ctx.fillText(upper(A.name), ax + 180, ay);
+  fitFont(ctx, upper(B.name), 560, 62, '900', BODY);
+  ctx.textAlign = 'right';
+  ctx.fillText(upper(B.name), bx - 180, byy);
+
+  ctx.textAlign = 'center';
+  ctx.font = `400 64px ${DISPLAY}`;
+  ctx.fillStyle = '#fff';
+  ctx.globalAlpha = fade * ease((t - 0.8) / 0.4);
+  ctx.fillText('SKOR TAHMİNİ', W / 2, 720);
+  ctx.font = `700 36px ${BODY}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.fillText(`Oyun: ${match.mode.meta.name}`, W / 2, 790);
+
+  // geri sayım
+  const ticks = [0.9, 1.7, 2.5];
+  for (let i = 0; i < 3; i++) {
+    const dt = t - ticks[i];
+    if (dt >= 0 && dt < 0.8) {
+      const s = 1 + (1 - ease(dt / 0.8)) * 0.6;
+      ctx.globalAlpha = fade * (1 - dt / 0.8);
+      ctx.font = `400 ${Math.round(220 * s)}px ${DISPLAY}`;
+      ctx.fillStyle = '#ffd700';
+      ctx.fillText(String(3 - i), W / 2, 1600);
+    }
+  }
+  ctx.restore();
+}
+
+function drawOutro(ctx, match, assets) {
+  const t = match.phase === 'final' ? 0 : match.phase === 'done' ? OUTRO : match.phaseT;
+  if (match.phase === 'final') {
+    const k = ease(match.phaseT / 0.6);
+    ctx.save();
+    ctx.globalAlpha = k;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `400 130px ${DISPLAY}`;
+    ctx.lineWidth = 12;
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.strokeText('MAÇ SONU', W / 2, ARENA.y + ARENA.h / 2);
+    ctx.fillStyle = '#fff';
+    ctx.fillText('MAÇ SONU', W / 2, ARENA.y + ARENA.h / 2);
+    ctx.restore();
+    return;
+  }
+  const [A, B] = assets.teams;
+  const k = ease(t / 0.5);
+  ctx.fillStyle = `rgba(5,7,15,${0.88 * k})`;
+  ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  ctx.globalAlpha = k;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `400 80px ${DISPLAY}`;
+  ctx.fillStyle = '#ffd700';
+  ctx.fillText('TAHMİNİMİZ', W / 2, 640);
+
+  const y = 900;
+  const s = easeBack((t - 0.2) / 0.5);
+  drawLogo(ctx, A, 200, y, 130 * s);
+  drawLogo(ctx, B, W - 200, y, 130 * s);
+  ctx.save();
+  ctx.translate(W / 2, y);
+  ctx.scale(s, s);
+  ctx.font = `400 230px ${DISPLAY}`;
+  ctx.fillStyle = '#fff';
+  ctx.fillText(`${match.score[0]}-${match.score[1]}`, 0, 10);
+  ctx.restore();
+
+  const w = match.winner;
+  const verdict = w === -1 ? 'BERABERLİK' : `${upper(assets.teams[w].name)} KAZANIR`;
+  const vy = 1110;
+  fitFont(ctx, verdict, 900, 64, '900', BODY);
+  const vw = ctx.measureText(verdict).width + 80;
+  roundRect(ctx, W / 2 - vw / 2, vy - 50, vw, 100, 50);
+  ctx.fillStyle = w === -1 ? 'rgba(255,255,255,0.18)' : rgba(assets.teams[w].glow, 0.9);
+  ctx.fill();
+  ctx.fillStyle = w === -1 ? '#fff' : textOn(assets.teams[w].glow);
+  ctx.fillText(verdict, W / 2, vy + 2);
+
+  // gol dakikaları
+  ctx.font = `700 38px ${BODY}`;
+  const cols = [[], []];
+  for (const g of match.goals) cols[g.team].push(`⚽ ${g.minute}'`);
+  for (const [i, x] of [[0, 300], [1, W - 300]]) {
+    cols[i].slice(0, 6).forEach((txt, j) => {
+      ctx.globalAlpha = k * ease((t - 0.6 - j * 0.12) / 0.3);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(txt, x, 1250 + j * 56);
+    });
+    if (cols[i].length > 6) ctx.fillText(`+${cols[i].length - 6}`, x, 1250 + 6 * 56);
+  }
+  ctx.globalAlpha = k * ease((t - 1.2) / 0.4);
+  ctx.font = `800 44px ${BODY}`;
+  ctx.fillStyle = '#ffd700';
+  ctx.fillText('Sen ne düşünüyorsun? 👇', W / 2, 1640);
+  ctx.font = `600 32px ${BODY}`;
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.fillText('Abone ol, her maçı tahmin edelim!', W / 2, 1700);
+  ctx.restore();
+}
+
+export function renderFrame(ctx, match, assets, opts = {}) {
+  ctx.save();
+  drawBackground(ctx, assets);
+  const [sx, sy] = match.fx.shakeOffset();
+  ctx.translate(sx, sy);
+  drawTitle(ctx, opts);
+  drawScoreboard(ctx, match, assets, opts);
+  match.game.draw(ctx, assets);
+  match.fx.drawParticles(ctx);
+  match.fx.drawPops(ctx);
+  if (match.phase === 'intro' || match.phase === 'play' || match.phase === 'final') drawFooter(ctx, match, assets);
+  drawBanner(ctx, match.fx);
+  ctx.restore();
+  if (match.fx.flash > 0) {
+    ctx.fillStyle = rgba(match.fx.flashColor, match.fx.flash * 0.5);
+    ctx.fillRect(0, 0, W, H);
+  }
+  if (match.phase === 'intro') drawIntro(ctx, match, assets, opts);
+  if (match.phase === 'final' || match.phase === 'outro' || match.phase === 'done') {
+    drawOutro(ctx, match, assets);
+    if (match.phase !== 'final') match.fx.drawParticles(ctx);
+  }
+}
+
+export { OUTRO };

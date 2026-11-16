@@ -149,7 +149,7 @@ export function create({ rng, edge, arena, events }) {
           ball.vx = Math.cos(a) * pow * 0.8 + ball.vx * 0.2;
           ball.vy = Math.sin(a) * pow * 0.8 + ball.vy * 0.2;
           p.cool = 0.35;
-          if (p.gk && Math.hypot(ball.vx, ball.vy) > 300 && v > 250) events.pop('KURTARDI!', p.x, p.y - 60, '#7cf');
+          if (p.gk && Math.hypot(ball.vx, ball.vy) > 300 && v > 250) events.pop('save', p.x, p.y - 60, '#7cf');
           events.hit(pow * 0.5, ball.x, ball.y);
         } else if (v > 0) {
           events.hit(v, ball.x, ball.y);
@@ -164,7 +164,7 @@ export function create({ rng, edge, arena, events }) {
       const v = collideStatic(ball, px, py, 10, 0.9);
       if (v > 350 && time - lastPostPop > 1) {
         lastPostPop = time;
-        events.pop('DİREK!', px, py + (py === top ? 60 : -60), '#ffd700');
+        events.pop('post', px, py + (py === top ? 60 : -60), '#ffd700');
         events.hit(v * 1.5, px, py);
       }
     }

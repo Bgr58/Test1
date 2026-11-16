@@ -163,7 +163,7 @@ export function create({ rng, edge, arena, events }) {
     ctx.font = '900 34px Anton, Impact, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('GOL', 0, 0);
+    ctx.fillText(assets.texts.t('goalLabel'), 0, 0);
     ctx.restore();
     for (const [ex, ey] of gapEnds()) {
       ctx.fillStyle = '#ffd700';

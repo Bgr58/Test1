@@ -131,7 +131,7 @@ export function create({ rng, edge, arena, events }) {
       for (const px of [l.mouthL, l.mouthR]) {
         const v = collideStatic(b, px, goalY, 9, 0.8);
         if (v > 250) {
-          events.pop('DİREK!', px, goalY - 50, '#ffd700');
+          events.pop('post', px, goalY - 50, '#ffd700');
           events.hit(v * 1.4, px, goalY);
         }
       }
@@ -142,7 +142,7 @@ export function create({ rng, edge, arena, events }) {
         if (kv > 150 && !b.saved) {
           b.saved = true;
           k.flash = 1;
-          events.pop('KURTARDI!', k.x, goalY - 90, '#7cf');
+          events.pop('save', k.x, goalY - 90, '#7cf');
           events.hit(kv, k.x, goalY);
         }
       }
@@ -170,7 +170,7 @@ export function create({ rng, edge, arena, events }) {
           l.flash = 1;
           events.goal(l.team, b.x, b.y);
         } else {
-          events.pop('AUT', b.x, b.y - 50, 'rgba(255,255,255,0.8)');
+          events.pop('out', b.x, b.y - 50, 'rgba(255,255,255,0.8)');
         }
         l.ball = null;
         l.wait = C.respawn;
@@ -203,7 +203,7 @@ export function create({ rng, edge, arena, events }) {
       ctx.font = '700 26px Inter, Arial, sans-serif';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`ŞUT ${l.shots}`, l.x1 - 18, arena.y + 40);
+      ctx.fillText(assets.texts.t('shots', { n: l.shots }), l.x1 - 18, arena.y + 40);
 
       for (const it of course) {
         if (it.k === 'peg') {
@@ -249,8 +249,9 @@ export function create({ rng, edge, arena, events }) {
       ctx.fillStyle = 'rgba(255,255,255,0.35)';
       ctx.font = '700 22px Inter, Arial, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('AUT', (l.x0 + l.mouthL) / 2, bottom - 30);
-      ctx.fillText('AUT', (l.mouthR + l.x1) / 2, bottom - 30);
+      const outTxt = assets.texts.t('out');
+      ctx.fillText(outTxt, (l.x0 + l.mouthL) / 2, bottom - 30, l.mouthL - l.x0 - 8);
+      ctx.fillText(outTxt, (l.mouthR + l.x1) / 2, bottom - 30, l.x1 - l.mouthR - 8);
 
       const k = l.keeper;
       const kh = (l.mw * C.keeperW) / 2;

@@ -44,14 +44,14 @@ function drawBackground(ctx, assets) {
 function drawTitle(ctx, opts) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const label = 'MAÇ TAHMİNİ';
-  ctx.font = `400 46px ${DISPLAY}`;
-  const w = ctx.measureText(label).width + 110;
+  const label = opts.texts.t('badge');
+  fitFont(ctx, label, 820, 46, '400', DISPLAY);
+  const w = ctx.measureText(label).width + 70;
   roundRect(ctx, W / 2 - w / 2, 62, w, 70, 35);
   ctx.fillStyle = '#ffd700';
   ctx.fill();
   ctx.fillStyle = '#111';
-  ctx.fillText('⚽ ' + label, W / 2, 99);
+  ctx.fillText(label, W / 2, 99);
   if (opts.subtitle) {
     fitFont(ctx, opts.subtitle, 900, 34, '600', BODY);
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
@@ -102,11 +102,11 @@ function drawScoreboard(ctx, match, assets, opts) {
 
   // dakika
   const min = match.minute;
-  const label = match.phase === 'intro' ? "0'" : match.phase === 'play' ? `${min}'` : 'MS';
+  const label = match.phase === 'intro' ? "0'" : match.phase === 'play' ? `${min}'` : opts.texts.t('fullTime');
   roundRect(ctx, W / 2 - 75, cy + 105, 150, 58, 29);
   ctx.fillStyle = match.phase === 'play' ? '#e63946' : 'rgba(255,255,255,0.15)';
   ctx.fill();
-  ctx.font = `800 36px ${BODY}`;
+  fitFont(ctx, label, 130, 36, '800', BODY);
   ctx.fillStyle = '#fff';
   ctx.fillText(label, W / 2, cy + 135);
 
@@ -121,32 +121,24 @@ function drawScoreboard(ctx, match, assets, opts) {
   ctx.fillStyle = '#ffd700';
   ctx.fill();
 
-  if (opts.showStrength) {
-    const pA = opts.pA ?? 0.5;
-    const y = 555;
-    ctx.font = `700 24px ${BODY}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.65)';
-    ctx.textAlign = 'left';
-    ctx.fillText(`GÜÇ  %${Math.round(pA * 100)}`, bx, y);
-    ctx.textAlign = 'right';
-    ctx.fillText(`%${Math.round((1 - pA) * 100)}  GÜÇ`, bx + bw, y);
-    ctx.textAlign = 'center';
-    ctx.fillText(opts.strengthSource || '', W / 2, y);
-  }
 }
 
-function drawFooter(ctx, match, assets) {
+function drawFooter(ctx, match, assets, opts) {
+  const T = opts.texts;
+  const id = match.mode.meta.id;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `400 40px ${DISPLAY}`;
+  const line = `${T.upper(T.t('mode.' + id))} • ${T.t('mode.' + id + '.hint')}`;
+  fitFont(ctx, line, 960, 40, '400', DISPLAY);
   ctx.fillStyle = 'rgba(255,255,255,0.9)';
-  ctx.fillText(`${match.mode.meta.name.toLocaleUpperCase('tr-TR')} • ${match.mode.meta.hint}`, W / 2, ARENA.y + ARENA.h + 70);
-  ctx.font = `700 34px ${BODY}`;
+  ctx.fillText(line, W / 2, ARENA.y + ARENA.h + 70);
+  const cta = T.t('ctaPlay');
+  fitFont(ctx, cta, 960, 34, '700', BODY);
   ctx.fillStyle = '#ffd700';
-  ctx.fillText('Sence skor ne olur? Yorumlara yaz 👇', W / 2, ARENA.y + ARENA.h + 130);
+  ctx.fillText(cta, W / 2, ARENA.y + ARENA.h + 130);
 }
 
-function drawBanner(ctx, fx) {
+function drawBanner(ctx, fx, T) {
   const b = fx.banner;
   if (!b) return;
   const k = b.age / b.life;
@@ -162,13 +154,14 @@ function drawBanner(ctx, fx) {
   ctx.fillRect(-W, -120, W * 2, 240);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `400 170px ${DISPLAY}`;
+  const goalTxt = T.t('goal');
+  fitFont(ctx, goalTxt, 980, 170, '400', DISPLAY);
   const ink = textOn(b.color);
   ctx.lineWidth = 14;
   ctx.strokeStyle = ink === '#ffffff' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.6)';
-  ctx.strokeText('GOOOL!', 0, -25);
+  ctx.strokeText(goalTxt, 0, -25);
   ctx.fillStyle = ink;
-  ctx.fillText('GOOOL!', 0, -25);
+  ctx.fillText(goalTxt, 0, -25);
   const name = upper(b.name);
   fitFont(ctx, name, 900, 52, '900', BODY);
   ctx.fillStyle = ink;
@@ -209,13 +202,16 @@ function drawIntro(ctx, match, assets, opts) {
   ctx.fillText(upper(B.name), bx - 180, byy);
 
   ctx.textAlign = 'center';
-  ctx.font = `400 64px ${DISPLAY}`;
-  ctx.fillStyle = '#fff';
+  const T = opts.texts;
   ctx.globalAlpha = fade * ease((t - 0.8) / 0.4);
-  ctx.fillText('SKOR TAHMİNİ', W / 2, 720);
-  ctx.font = `700 36px ${BODY}`;
+  const it = T.t('introTitle');
+  fitFont(ctx, it, 960, 64, '400', DISPLAY);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(it, W / 2, 720);
+  const im = T.t('introMode', { mode: T.t('mode.' + match.mode.meta.id) });
+  fitFont(ctx, im, 960, 36, '700', BODY);
   ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.fillText(`Oyun: ${match.mode.meta.name}`, W / 2, 790);
+  ctx.fillText(im, W / 2, 790);
 
   // geri sayım
   const ticks = [0.9, 1.7, 2.5];
@@ -232,7 +228,8 @@ function drawIntro(ctx, match, assets, opts) {
   ctx.restore();
 }
 
-function drawOutro(ctx, match, assets) {
+function drawOutro(ctx, match, assets, opts) {
+  const T = opts.texts;
   const t = match.phase === 'final' ? 0 : match.phase === 'done' ? OUTRO : match.phaseT;
   if (match.phase === 'final') {
     const k = ease(match.phaseT / 0.6);
@@ -240,12 +237,13 @@ function drawOutro(ctx, match, assets) {
     ctx.globalAlpha = k;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `400 130px ${DISPLAY}`;
+    const me = T.t('matchEnd');
+    fitFont(ctx, me, 980, 130, '400', DISPLAY);
     ctx.lineWidth = 12;
     ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-    ctx.strokeText('MAÇ SONU', W / 2, ARENA.y + ARENA.h / 2);
+    ctx.strokeText(me, W / 2, ARENA.y + ARENA.h / 2);
     ctx.fillStyle = '#fff';
-    ctx.fillText('MAÇ SONU', W / 2, ARENA.y + ARENA.h / 2);
+    ctx.fillText(me, W / 2, ARENA.y + ARENA.h / 2);
     ctx.restore();
     return;
   }
@@ -257,9 +255,10 @@ function drawOutro(ctx, match, assets) {
   ctx.globalAlpha = k;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `400 80px ${DISPLAY}`;
+  const op = T.t('ourPrediction');
+  fitFont(ctx, op, 980, 80, '400', DISPLAY);
   ctx.fillStyle = '#ffd700';
-  ctx.fillText('TAHMİNİMİZ', W / 2, 640);
+  ctx.fillText(op, W / 2, 640);
 
   const y = 900;
   const s = easeBack((t - 0.2) / 0.5);
@@ -274,7 +273,7 @@ function drawOutro(ctx, match, assets) {
   ctx.restore();
 
   const w = match.winner;
-  const verdict = w === -1 ? 'BERABERLİK' : `${upper(assets.teams[w].name)} KAZANIR`;
+  const verdict = w === -1 ? T.t('draw') : T.t('wins', { team: upper(assets.teams[w].name) });
   const vy = 1110;
   fitFont(ctx, verdict, 900, 64, '900', BODY);
   const vw = ctx.measureText(verdict).width + 80;
@@ -297,16 +296,17 @@ function drawOutro(ctx, match, assets) {
     if (cols[i].length > 6) ctx.fillText(`+${cols[i].length - 6}`, x, 1250 + 6 * 56);
   }
   ctx.globalAlpha = k * ease((t - 1.2) / 0.4);
-  ctx.font = `800 44px ${BODY}`;
+  fitFont(ctx, T.t('ctaEnd'), 960, 44, '800', BODY);
   ctx.fillStyle = '#ffd700';
-  ctx.fillText('Sen ne düşünüyorsun? 👇', W / 2, 1640);
-  ctx.font = `600 32px ${BODY}`;
+  ctx.fillText(T.t('ctaEnd'), W / 2, 1640);
+  fitFont(ctx, T.t('subscribe'), 960, 32, '600', BODY);
   ctx.fillStyle = 'rgba(255,255,255,0.8)';
-  ctx.fillText('Abone ol, her maçı tahmin edelim!', W / 2, 1700);
+  ctx.fillText(T.t('subscribe'), W / 2, 1700);
   ctx.restore();
 }
 
 export function renderFrame(ctx, match, assets, opts = {}) {
+  opts = { ...opts, texts: opts.texts || assets.texts || match.texts };
   ctx.save();
   drawBackground(ctx, assets);
   const [sx, sy] = match.fx.shakeOffset();
@@ -316,8 +316,8 @@ export function renderFrame(ctx, match, assets, opts = {}) {
   match.game.draw(ctx, assets);
   match.fx.drawParticles(ctx);
   match.fx.drawPops(ctx);
-  if (match.phase === 'intro' || match.phase === 'play' || match.phase === 'final') drawFooter(ctx, match, assets);
-  drawBanner(ctx, match.fx);
+  if (match.phase === 'intro' || match.phase === 'play' || match.phase === 'final') drawFooter(ctx, match, assets, opts);
+  drawBanner(ctx, match.fx, opts.texts);
   ctx.restore();
   if (match.fx.flash > 0) {
     ctx.fillStyle = rgba(match.fx.flashColor, match.fx.flash * 0.5);
@@ -325,7 +325,7 @@ export function renderFrame(ctx, match, assets, opts = {}) {
   }
   if (match.phase === 'intro') drawIntro(ctx, match, assets, opts);
   if (match.phase === 'final' || match.phase === 'outro' || match.phase === 'done') {
-    drawOutro(ctx, match, assets);
+    drawOutro(ctx, match, assets, opts);
     if (match.phase !== 'final') match.fx.drawParticles(ctx);
   }
 }

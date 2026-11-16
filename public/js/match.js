@@ -4,6 +4,7 @@
 import { makeRng } from './rng.js';
 import { getMode } from './modes/index.js';
 import { Effects } from './effects.js';
+import { makeTexts } from './i18n.js';
 
 export const W = 1080;
 export const H = 1920;
@@ -25,7 +26,8 @@ export class Match {
    * @param {number} o.duration  oyun süresi (sn) — 90 dakikaya ölçeklenir
    * @param {[number,number]} o.edge  güç avantajı (-1..1)
    */
-  constructor({ teams, modeId, seed, duration = 45, edge = [0, 0], audio = null, skipIntro = false }) {
+  constructor({ teams, modeId, seed, duration = 45, edge = [0, 0], audio = null, skipIntro = false, texts = null }) {
+    this.texts = texts || makeTexts('tr');
     this.teams = teams;
     this.mode = getMode(modeId);
     this.seed = seed >>> 0;
@@ -51,10 +53,11 @@ export class Match {
       events: {
         goal: (team, x, y) => this.onGoal(team, x, y),
         hit: (v, x, y) => this.onHit(v, x, y),
-        pop: (text, x, y, color) => {
+        // key: 'save' | 'post' | 'out' — metin dil paketinden gelir
+        pop: (key, x, y, color) => {
           if (this.phase === 'play') {
-            this.fx.pop(text, x, y, color);
-            if (text === 'KURTARDI!' || text === 'DİREK!') this.audio.ooh?.();
+            this.fx.pop(this.texts.t(key), x, y, color);
+            if (key === 'save' || key === 'post') this.audio.ooh?.();
           }
         },
       },

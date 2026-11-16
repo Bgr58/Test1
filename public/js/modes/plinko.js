@@ -135,7 +135,7 @@ export function create({ rng, edge, arena, events }) {
           if (v > 150 && !b.saved) {
             b.saved = true;
             k.flash = 1;
-            events.pop('KURTARDI!', k.x, k.y - 40, '#7cf');
+            events.pop('save', k.x, k.y - 40, '#7cf');
             events.hit(v, k.x, k.y);
           }
         }
@@ -207,7 +207,7 @@ export function create({ rng, edge, arena, events }) {
       ctx.font = isGoal ? '900 30px Anton, Impact, sans-serif' : '700 30px Inter, Arial, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(isGoal ? 'GOL' : '✕', x + slotW / 2, floor - 30);
+      ctx.fillText(isGoal ? assets.texts.t('goalLabel') : '✕', x + slotW / 2, floor - 30, slotW - 12);
     }
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     for (const x of dividers) {

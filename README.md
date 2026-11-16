@@ -26,9 +26,15 @@ Kayıt sırasında sekme açık ve görünür kalmalı (tarayıcı arka plandaki
 2. **Oyun formatı:** 4 mod var. **Rastgele** seçeneği aynı formatı arka arkaya vermez.
 3. **Güç etkisi:** %0 tamamen şanstır. Yükseldikçe güçlü takım hafif avantaj alır
    (daha hızlı oyuncular, biraz daha geniş kale vb.) ama zayıf takım yine kazanabilir.
-4. **Önizle** ile izle, **Kaydet ve indir** ile videoyu al.
+   Güç **videoda gösterilmez**. Hesaplanan denge sadece panelde ("Arka plan güç dengesi") görünür.
+4. **Video dili:** Türkçe, English, Español, Português, Deutsch, Français, Italiano.
+   **Videodaki metinleri düzenle** bölümünden her yazıyı değiştirebilirsin. Buna gol bandı, kurtarış/direk yazıları,
+   mod adları, bitiş ekranı, YouTube başlığı ve açıklaması dahil. Değişiklikler o dil için tarayıcıda saklanır
+   ve "varsayılana döndür" ile sıfırlanır. `{home}`, `{away}`, `{score}`, `{mode}`, `{team}`, `{n}` gibi
+   yer tutucular otomatik doldurulur.
+5. **Önizle** ile izle, **Kaydet ve indir** ile videoyu al.
    **4 formatın hepsini üret** aynı maç için 4 farklı video üretir.
-5. Sonuç kartında hazır **Shorts başlığı ve açıklaması** (hashtag'li) var, tek tıkla kopyalanır.
+6. Sonuç kartında seçili dilde hazır **Shorts başlığı ve açıklaması** (hashtag'li) var, tek tıkla kopyalanır.
 
 > **Seed:** Aynı seed + aynı ayarlar = birebir aynı maç ve skor. Boş bırakılırsa her seferinde rastgele seçilir. Kullanılan seed sonuç kartında yazar.
 
@@ -51,7 +57,7 @@ npm run simulate
 ## Video içeriği
 
 - **Giriş (3 sn):** Logolar kayarak gelir, VS ve 3-2-1 geri sayım, başlama düdüğü.
-- **Oyun:** Skor tabelası, 1'–90' dakika sayacı, ilerleme çubuğu ve güç yüzdesi.
+- **Oyun:** Skor tabelası, 1'–90' dakika sayacı ve ilerleme çubuğu.
   Gollerde GOOOL bandı, konfeti, ekran sarsıntısı, flaş ve tribün sesi.
   Kurtarış ve direk anlarında yazı ve "ooo" sesi çıkar.
 - **Son:** Üç düdük, büyük skor, kazanan ya da beraberlik, gol dakikaları ve yorum çağrısı.
@@ -68,6 +74,7 @@ public/js/match.js      maç akışı (sabit adımlı, deterministik; Node'da da
 public/js/modes/*.js    4 oyun modu (fizik + çizim)
 public/js/render.js     tabela, giriş/çıkış ekranları
 public/js/strength.js   Elo/kadro değeri → oyun avantajı, isim eşleştirme
+public/js/i18n.js       videodaki tüm metinler (dil paketleri) — yeni dil buraya eklenir
 public/js/audio.js      sentez sesler
 public/js/recorder.js   MediaRecorder ile video kaydı
 test/                   birim testleri (npm test)

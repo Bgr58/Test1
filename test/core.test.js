@@ -70,3 +70,18 @@ test('maç fazları sırayla ilerler ve biter', () => {
   assert.ok(m.done);
   assert.deepEqual([...seen], ['intro', 'play', 'final', 'outro', 'done']);
 });
+
+test('dil paketleri: her dilde tüm metinler var, yer tutucular korunuyor', async () => {
+  const { LANGS, KEYS, makeTexts } = await import('../public/js/i18n.js');
+  const ph = (s) => (String(s).match(/\{\w+\}/g) || []).sort().join();
+  for (const [code, pack] of Object.entries(LANGS)) {
+    for (const { key } of KEYS) {
+      assert.ok(pack.strings[key], `${code}.${key} eksik`);
+      assert.equal(ph(pack.strings[key]), ph(LANGS.tr.strings[key]), `${code}.${key} yer tutucu farklı`);
+    }
+  }
+  const T = makeTexts('en', { goal: 'GOL GOL!' });
+  assert.equal(T.t('goal'), 'GOL GOL!');
+  assert.equal(T.t('wins', { team: 'ARSENAL' }), 'ARSENAL WIN');
+  assert.equal(makeTexts('tr').upper('mini'), 'MİNİ');
+});

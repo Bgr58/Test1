@@ -83,11 +83,14 @@
         <label class="span2">Güç etkisi: <b id="influenceVal">40%</b>
           <input id="influence" type="range" min="0" max="100" value="40" />
           <small class="muted">0% = tamamen şans. Yüksek değerde güçlü takım daha avantajlı ama yine de kaybedebilir.</small>
+          <div id="strengthInfo" class="strength-info"></div>
         </label>
-        <label class="check"><input id="home" type="checkbox" checked /> Ev sahibi avantajı</label>
-        <label class="check"><input id="showStrength" type="checkbox" checked /> Güç yüzdesini göster</label>
         <label class="check"><input id="sound" type="checkbox" checked /> Ses ve efektler</label>
         <label class="check"><input id="monitor" type="checkbox" checked /> Kayıtta sesi duy</label>
+        <label>Video dili
+          <select id="lang"></select>
+        </label>
+        <label class="check"><input id="home" type="checkbox" checked /> Ev sahibi avantajı</label>
         <label class="span2">Alt başlık
           <input id="subtitle" type="text" placeholder="ör. La Liga • 26 Ekim 22:00" value="" />
         </label>
@@ -95,6 +98,14 @@
           <div class="row"><input id="seed" type="text" placeholder="boş = rastgele" /><button id="dice" title="Rastgele seed">🎲</button></div>
         </label>
       </div>
+
+      <details class="texts">
+        <summary>✏️ Videodaki metinleri düzenle <small class="muted">(seçili dil için kaydedilir)</small></summary>
+        <div id="textEditor" class="text-editor"></div>
+        <div class="row">
+          <button id="textsReset" class="secondary">Bu dilin metinlerini varsayılana döndür</button>
+        </div>
+      </details>
 
       <div class="actions">
         <button id="preview" class="secondary">▶ Önizle</button>

@@ -7,6 +7,7 @@ import { Recorder, pickMime } from './recorder.js';
 import { buildTeamAssets, loadImage, extractColors } from './assets.js';
 import { computeStrength, matchClub, fallbackList } from './strength.js';
 import { randomSeed } from './rng.js';
+import { LANGS, KEYS, makeTexts } from './i18n.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const canvas = $('#canvas');
@@ -151,7 +152,73 @@ influence.addEventListener('input', () => {
   $('#influenceVal').textContent = influence.value + '%';
   drawPoster();
 });
-['#home', '#showStrength', '#subtitle', '#mode'].forEach((s) => $(s).addEventListener('input', drawPoster));
+['#home', '#subtitle', '#mode', '#duration'].forEach((s) => $(s).addEventListener('input', drawPoster));
+
+// ---------------------------------------------------------------- dil ve metinler
+const langSel = $('#lang');
+langSel.innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+langSel.value = LANGS[storage.get('lang', 'tr')] ? storage.get('lang', 'tr') : 'tr';
+
+const overridesFor = (lang) => storage.get('texts.' + lang, {});
+const currentTexts = () => makeTexts(langSel.value, overridesFor(langSel.value));
+
+function buildTextEditor() {
+  const lang = langSel.value;
+  const pack = LANGS[lang].strings;
+  const ov = overridesFor(lang);
+  const box = $('#textEditor');
+  box.innerHTML = '';
+  let group = '';
+  for (const k of KEYS) {
+    if (k.group !== group) {
+      group = k.group;
+      const h = document.createElement('h4');
+      h.textContent = group;
+      box.append(h);
+    }
+    const label = document.createElement('label');
+    if (k.multiline || k.group === 'YouTube') label.className = 'wide';
+    label.textContent = k.label;
+    const input = document.createElement(k.multiline ? 'textarea' : 'input');
+    if (!k.multiline) input.type = 'text';
+    input.value = ov[k.key] ?? pack[k.key] ?? '';
+    input.placeholder = pack[k.key] ?? '';
+    input.classList.toggle('changed', k.key in ov);
+    input.addEventListener('input', () => {
+      const o = overridesFor(lang);
+      if (input.value === (pack[k.key] ?? '')) delete o[k.key];
+      else o[k.key] = input.value;
+      storage.set('texts.' + lang, o);
+      input.classList.toggle('changed', k.key in o);
+      drawPoster();
+    });
+    label.append(input);
+    box.append(label);
+  }
+}
+
+langSel.addEventListener('change', () => {
+  storage.set('lang', langSel.value);
+  buildTextEditor();
+  drawPoster();
+});
+$('#textsReset').addEventListener('click', () => {
+  storage.set('texts.' + langSel.value, {});
+  buildTextEditor();
+  drawPoster();
+});
+buildTextEditor();
+
+// Güç dengesi sadece panelde (videoda gösterilmez)
+function showStrengthInfo(s) {
+  const pA = s.st.pA;
+  const e = s.st.edge[0];
+  const a = Math.round(pA * 100);
+  const fav = Math.abs(e) < 0.02 ? 'Dengeli maç' : `${e > 0 ? s.A.name : s.B.name} hafif avantajlı`;
+  $('#strengthInfo').innerHTML = `🔒 <b>Arka plan güç dengesi</b> (videoda görünmez): ${escapeHtml(s.A.name)} %${a} · ${escapeHtml(s.B.name)} %${100 - a}
+    <br><small class="muted">${escapeHtml(fav)} · kaynak: ${escapeHtml(s.strengthSource)} · oyun avantajı ${(Math.abs(e) * 100).toFixed(0)}%</small>
+    <div class="bar"><span style="width:${a}%;background:${s.A.color}"></span><span style="width:${100 - a}%;background:${s.B.color}"></span></div>`;
+}
 $('#dice').addEventListener('click', () => {
   $('#seed').value = randomSeed();
 });
@@ -169,7 +236,6 @@ function settings() {
     A, B, st,
     duration: +$('#duration').value,
     subtitle: $('#subtitle').value.trim(),
-    showStrength: $('#showStrength').checked,
     sound: $('#sound').checked,
     monitor: $('#monitor').checked,
     strengthSource: src,
@@ -191,7 +257,7 @@ function nextRandomMode() {
 }
 
 function buildAssets(s) {
-  return { teams: [buildTeamAssets(s.A), buildTeamAssets(s.B)] };
+  return { teams: [buildTeamAssets(s.A), buildTeamAssets(s.B)], texts: currentTexts() };
 }
 
 // Hareketsiz önizleme karesi
@@ -200,9 +266,11 @@ function drawPoster() {
   const s = settings();
   const sel = $('#mode').value;
   const modeId = sel === 'random' ? 'ring' : sel;
-  const m = new Match({ teams: [s.A, s.B], modeId, seed: 12345, duration: s.duration, edge: s.st.edge, skipIntro: true });
+  showStrengthInfo(s);
+  const assets = buildAssets(s);
+  const m = new Match({ teams: [s.A, s.B], modeId, seed: 12345, duration: s.duration, edge: s.st.edge, skipIntro: true, texts: assets.texts });
   for (let k = 0; k < 120; k++) m.step();
-  renderFrame(ctx, m, buildAssets(s), { subtitle: s.subtitle, showStrength: s.showStrength, pA: s.st.pA, strengthSource: s.strengthSource });
+  renderFrame(ctx, m, assets, { subtitle: s.subtitle });
 }
 
 // ---------------------------------------------------------------- oynatma / kayıt
@@ -228,8 +296,8 @@ async function playOnce({ record, modeId: forcedMode }) {
   const seedText = $('#seed').value.trim();
   const seed = seedText ? (/^\d+$/.test(seedText) ? +seedText : hashStr(seedText)) : randomSeed();
   const assets = buildAssets(s);
-  const opts = { subtitle: s.subtitle, showStrength: s.showStrength, pA: s.st.pA, strengthSource: s.strengthSource };
-  const match = new Match({ teams: [assets.teams[0], assets.teams[1]], modeId, seed, duration: s.duration, edge: s.st.edge, audio: snd });
+  const opts = { subtitle: s.subtitle };
+  const match = new Match({ teams: [assets.teams[0], assets.teams[1]], modeId, seed, duration: s.duration, edge: s.st.edge, audio: snd, texts: assets.texts });
 
   let recorder = null;
   if (record) {
@@ -268,7 +336,7 @@ async function playOnce({ record, modeId: forcedMode }) {
     setStatus('Kayıt iptal edildi.');
     return null;
   }
-  const result = { blob, ext: recorder.ext, match, s, seed, modeId };
+  const result = { blob, ext: recorder.ext, match, s, seed, modeId, texts: assets.texts };
   addResult(result);
   setStatus(`Bitti: ${s.A.name} ${match.score[0]}-${match.score[1]} ${s.B.name}`);
   return result;
@@ -284,32 +352,27 @@ function slug(s) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ı/g, 'i').replace(/[^a-zA-Z0-9]+/g, '').slice(0, 24) || 'takim';
 }
 
-function shortsText(s, match, modeId) {
+function shortsText(s, match, modeId, T) {
   const [a, b] = match.score;
-  const tagA = '#' + slug(s.A.name).toLowerCase();
-  const tagB = '#' + slug(s.B.name).toLowerCase();
-  const title = `${s.A.name} vs ${s.B.name} Skor Tahmini: ${a}-${b}! ⚽ #shorts`;
-  const desc = [
-    `${s.A.name} - ${s.B.name} maçının skorunu "${getMode(modeId).meta.name}" oyunuyla tahmin ettik: ${a}-${b}.`,
-    s.subtitle ? s.subtitle : '',
-    'Sence maç kaç kaç biter? Yorumlara yaz! 👇',
-    `${tagA} ${tagB} #maçtahmini #skortahmini #futbol #shorts`,
-  ].filter(Boolean).join('\n');
+  const tags = ['#' + slug(s.A.name).toLowerCase(), '#' + slug(s.B.name).toLowerCase()].join(' ');
+  const vars = { home: s.A.name, away: s.B.name, score: `${a}-${b}`, mode: T.t('mode.' + modeId), subtitle: s.subtitle, tags };
+  const title = T.t('ytTitle', vars);
+  const desc = T.t('ytDesc', vars).split('\n').filter((l) => l.trim()).join('\n');
   return { title, desc };
 }
 
-function addResult({ blob, ext, match, s, seed, modeId }) {
+function addResult({ blob, ext, match, s, seed, modeId, texts }) {
   const url = URL.createObjectURL(blob);
   const [a, b] = match.score;
-  const file = `tahmin_${slug(s.A.name)}_${slug(s.B.name)}_${a}-${b}_${modeId}.${ext}`;
-  const { title, desc } = shortsText(s, match, modeId);
+  const file = `tahmin_${slug(s.A.name)}_${slug(s.B.name)}_${a}-${b}_${modeId}_${texts.lang}.${ext}`;
+  const { title, desc } = shortsText(s, match, modeId, texts);
   const div = document.createElement('div');
   div.className = 'result';
   div.innerHTML = `
     <video src="${url}" controls muted playsinline></video>
     <div>
       <h3>${escapeHtml(s.A.name)} ${a}-${b} ${escapeHtml(s.B.name)}</h3>
-      <div class="meta">${escapeHtml(getMode(modeId).meta.name)} · seed ${seed} · ${(blob.size / 1e6).toFixed(1)} MB · ${ext.toUpperCase()}</div>
+      <div class="meta">${escapeHtml(getMode(modeId).meta.name)} · ${LANGS[texts.lang].label} · seed ${seed} · ${(blob.size / 1e6).toFixed(1)} MB · ${ext.toUpperCase()}</div>
       <textarea readonly>${escapeHtml(title + '\n\n' + desc)}</textarea>
       <div class="row">
         <a class="btn" href="${url}" download="${file}">⬇ İndir</a>

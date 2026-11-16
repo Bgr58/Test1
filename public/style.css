@@ -149,3 +149,24 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   .phone { height: 70vh; }
   .teams { grid-template-columns: 1fr; }
 }
+
+.strength-info {
+  margin-top: 6px; padding: 8px 10px; border-radius: 10px;
+  background: #0c1224; border: 1px dashed var(--line); color: var(--text); font-size: 13px;
+}
+.strength-info .bar { height: 8px; border-radius: 4px; overflow: hidden; display: flex; margin-top: 6px; }
+.strength-info .bar span { display: block; height: 100%; }
+
+.texts {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px;
+}
+.texts summary { cursor: pointer; font-weight: 700; }
+.text-editor { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
+.text-editor h4 { grid-column: span 2; margin: 8px 0 0; font-size: 12px; letter-spacing: 1px; color: var(--accent); text-transform: uppercase; }
+.text-editor label.wide { grid-column: span 2; }
+.text-editor input.changed, .text-editor textarea.changed { border-color: var(--accent); }
+.text-editor textarea {
+  width: 100%; min-height: 110px; resize: vertical; background: #0c1224; color: var(--text);
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; font: 13px/1.4 Inter, sans-serif;
+}
+@media (max-width: 900px) { .text-editor { grid-template-columns: 1fr; } .text-editor h4, .text-editor label.wide { grid-column: span 1; } }

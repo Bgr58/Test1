@@ -9,5 +9,10 @@
     "test": "node --test test/*.test.js",
     "simulate": "node scripts/simulate.js"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "playwright-core": "1.63.0"
+  }
 }

@@ -204,6 +204,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .fx-controls button { padding: 8px 11px; }
 .fx-list { max-height: 330px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 4px; }
 .fx-league { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--accent); margin: 8px 0 2px; text-transform: uppercase; }
+.fx-row { display: grid; grid-template-columns: 1fr 40px; gap: 6px; }
 .fx-item {
   display: grid; grid-template-columns: 52px 1fr 14px 1fr; gap: 8px; align-items: center;
   background: #0c1224; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; text-align: left; font-weight: 600;
@@ -213,3 +214,37 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .fx-team { display: flex; gap: 8px; align-items: center; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fx-team img { width: 22px; height: 22px; object-fit: contain; background: #fff; border-radius: 50%; padding: 2px; flex: none; }
 .fx-vs { color: var(--muted); text-align: center; }
+
+.fx-add { padding: 0; font-size: 18px; font-weight: 800; color: var(--accent); }
+.fx-add.added { color: #4ade80; opacity: 1; }
+
+/* otomatik kuyruk */
+.queue {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px; display: flex; flex-direction: column; gap: 10px;
+}
+label.inline { flex-direction: row; align-items: center; gap: 6px; color: var(--text); }
+label.inline input { width: 72px; }
+label.inline select { width: auto; }
+.q-yt { font-size: 13px; }
+.q-yt details summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+.q-yt .row.wrap { flex-wrap: wrap; }
+.q-yt .row.wrap input { flex: 1 1 200px; }
+.btn-link { background: var(--primary); color: #fff; text-decoration: none; padding: 8px 12px; border-radius: 10px; font-weight: 700; }
+.warn { background: #3a2a0c; border: 1px solid #7a5a12; color: #ffd98a; border-radius: 10px; padding: 8px 10px; margin: 6px 0 0; font-size: 12.5px; }
+.q-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
+.q-item {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center;
+  background: #0c1224; border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px;
+}
+.q-title { font-weight: 700; }
+.q-meta, .q-info { font-size: 12px; color: var(--muted); }
+.q-info .err { color: #ff8a8a; }
+.q-status { font-size: 11.5px; font-weight: 800; padding: 4px 8px; border-radius: 999px; white-space: nowrap; }
+.st-wait { background: #1f2a4d; color: #b8c4ea; }
+.st-work { background: #3a3110; color: #ffd84d; }
+.st-ok { background: #0f3a24; color: #6ee7a8; }
+.st-bad { background: #3a1620; color: #ff8a9a; }
+.q-actions { display: flex; gap: 4px; }
+.q-actions button, .q-actions a { padding: 6px 9px; font-size: 13px; text-decoration: none; color: var(--text); background: #1b2440; border: 1px solid var(--line); border-radius: 8px; }
+@media (max-width: 900px) { .q-item { grid-template-columns: 1fr auto; } .q-actions { grid-column: span 2; } }

@@ -1,13 +1,14 @@
 // Arayüz: takım arama, logo/renk, güç hesabı, önizleme ve video kaydı.
 import { Match } from './match.js';
 import { MODES, getMode } from './modes/index.js';
-import { renderFrame, renderThumbnail } from './render.js';
+import { renderFrame } from './render.js';
 import { Sound } from './audio.js';
 import { Recorder, pickMime } from './recorder.js';
 import { buildTeamAssets, loadImage, extractColors } from './assets.js';
 import { computeStrength, matchClub, fallbackList } from './strength.js';
 import { randomSeed } from './rng.js';
 import { LANGS, KEYS, makeTexts } from './i18n.js';
+import { slug, hashStr, weakColors, fixtureSubtitle, shortsText, makeThumbnail } from './produce.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const canvas = $('#canvas');
@@ -81,14 +82,6 @@ async function setLogo(i, src, { autoColors = false } = {}) {
 }
 
 // ESPN rengi anlamsızsa (yok, iki renk aynı ya da ikisi de çok koyu) logodan çıkar
-function weakColors(t) {
-  if (t.knownColors) return false;
-  if (!t.color || !t.color2) return true;
-  if (t.color === t.color2) return true;
-  const dark = (h) => parseInt(h.slice(1, 3), 16) + parseInt(h.slice(3, 5), 16) + parseInt(h.slice(5, 7), 16) < 90;
-  return dark(t.color) && dark(t.color2);
-}
-
 // Açılır listeden / fikstürden seçilen takımı uygula
 async function selectTeam(i, t) {
   const el = teams[i].el;
@@ -270,12 +263,18 @@ function renderFixtures() {
     ${ms.map((m) => {
       const k = fixtures.indexOf(m);
       const score = m.state === 'pre' ? fmtTime(m.date) : `${m.home.score ?? ''}-${m.away.score ?? ''}`;
-      return `<button type="button" class="fx-item" data-k="${k}" title="${escapeHtml(m.venue)}">
-        <span class="fx-time">${escapeHtml(score)}</span>
-        <span class="fx-team">${m.home.logo ? `<img src="${m.home.logo}" alt="" loading="lazy" />` : ''}${escapeHtml(m.home.name)}</span>
-        <span class="fx-vs">–</span>
-        <span class="fx-team">${m.away.logo ? `<img src="${m.away.logo}" alt="" loading="lazy" />` : ''}${escapeHtml(m.away.name)}</span>
-      </button>`;
+      const inQueue = queuedFixtures.has(String(m.id));
+      const canAdd = m.state === 'pre' && new Date(m.date) > Date.now();
+      return `<div class="fx-row">
+        <button type="button" class="fx-item" data-k="${k}" title="${escapeHtml(m.venue)}">
+          <span class="fx-time">${escapeHtml(score)}</span>
+          <span class="fx-team">${m.home.logo ? `<img src="${m.home.logo}" alt="" loading="lazy" />` : ''}${escapeHtml(m.home.name)}</span>
+          <span class="fx-vs">–</span>
+          <span class="fx-team">${m.away.logo ? `<img src="${m.away.logo}" alt="" loading="lazy" />` : ''}${escapeHtml(m.away.name)}</span>
+        </button>
+        <button type="button" class="fx-add${inQueue ? ' added' : ''}" data-k="${k}" ${inQueue || !canAdd ? 'disabled' : ''}
+          title="${inQueue ? 'Kuyrukta' : canAdd ? 'Otomatik kuyruğa ekle' : 'Başlamış maç eklenemez'}">${inQueue ? '✓' : '＋'}</button>
+      </div>`;
     }).join('')}`).join('');
 }
 
@@ -283,18 +282,7 @@ function renderFixtures() {
 let lastFixture = null;
 let lastAutoSubtitle = '';
 function setFixtureSubtitle(m) {
-  const lang = $('#lang').value;
-  const locale = LANGS[lang]?.locale || 'en-GB';
-  let text;
-  if (lang === 'en') {
-    const d = new Date(m.date);
-    const day = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' });
-    const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
-    text = `${m.leagueEn || m.league} • ${day}, ${time} UK`;
-  } else {
-    const when = new Date(m.date).toLocaleString(locale, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
-    text = `${lang === 'tr' ? m.league : m.leagueEn || m.league} • ${when}`;
-  }
+  const text = fixtureSubtitle(m, $('#lang').value);
   lastFixture = m;
   lastAutoSubtitle = text;
   $('#subtitle').value = text;
@@ -515,40 +503,6 @@ async function playOnce({ record, modeId: forcedMode }) {
   return result;
 }
 
-function hashStr(str) {
-  let h = 2166136261;
-  for (const ch of str) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-  return h >>> 0;
-}
-
-function slug(s) {
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ı/g, 'i').replace(/[^a-zA-Z0-9]+/g, '').slice(0, 24) || 'takim';
-}
-
-// Başlık/açıklamada skor YOK (izleyici videoyu izlesin). Eski şablonda {score} kalmışsa boş geçilir.
-function shortsText(s, modeId, T) {
-  const tags = ['#' + slug(s.A.name).toLowerCase(), '#' + slug(s.B.name).toLowerCase()].join(' ');
-  const vars = { home: s.A.name, away: s.B.name, score: '', mode: T.t('mode.' + modeId), subtitle: s.subtitle, tags };
-  const title = T.t('ytTitle', vars);
-  const desc = T.t('ytDesc', vars).split('\n').filter((l) => l.trim()).join('\n');
-  return { title: title.replace(/\s{2,}/g, ' ').trim(), desc };
-}
-
-// Kapak görseli (JPEG, 1080×1920). YouTube kapak sınırı 2 MB; kalite buna göre ayarlanır.
-async function makeThumbnail(s, texts) {
-  await document.fonts.ready;
-  const c = document.createElement('canvas');
-  c.width = 1080;
-  c.height = 1920;
-  const assets = { teams: [buildTeamAssets(s.A), buildTeamAssets(s.B)], texts };
-  renderThumbnail(c.getContext('2d'), assets, { subtitle: s.subtitle, texts });
-  for (const q of [0.92, 0.85, 0.75]) {
-    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', q));
-    if (blob.size < 1.9e6) return blob;
-  }
-  return new Promise((r) => c.toBlob(r, 'image/jpeg', 0.6));
-}
-
 function downloadBlob(blob, name) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -637,6 +591,169 @@ else if (!pickMime().includes('mp4')) setStatus('Not: Bu tarayıcı MP4 kaydedem
 
 document.fonts.ready.then(drawPoster);
 drawPoster();
+// ---------------------------------------------------------------- otomatik kuyruk + YouTube
+const H_POST = { 'X-Requested-With': 'mac-tahmin', 'Content-Type': 'application/json' };
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: H_POST, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+
+let queuedFixtures = new Set();
+let queueSig = '';
+const STATUS = {
+  queued: ['Sırada', 'st-wait'],
+  rendering: ['Üretiliyor…', 'st-work'],
+  rendered: ['Üretildi', 'st-work'],
+  uploading: ['Yükleniyor…', 'st-work'],
+  ready: ['Hazır · elle yükle', 'st-ok'],
+  scheduled: ['YouTube’da zamanlandı', 'st-ok'],
+  failed: ['Hata', 'st-bad'],
+  missed: ['Kaçırıldı', 'st-bad'],
+};
+const fmtWhen = (iso) => new Date(iso).toLocaleString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+function renderYoutubeBox(yt, settings) {
+  const box = $('#qYoutube');
+  let html;
+  if (yt.connected) {
+    html = `<div class="row"><span>✅ Bağlı kanal: <b>${escapeHtml(yt.channelTitle || '(adı alınamadı)')}</b></span>
+      <button id="ytDisconnect" class="secondary">Bağlantıyı kes</button></div>`;
+  } else if (yt.configured) {
+    html = `<div class="row"><span>OAuth bilgileri kayıtlı.</span>
+      <a class="btn-link" href="/auth/youtube">🔗 Google hesabıyla bağlan</a>
+      <button id="ytReset" class="secondary">Bilgileri değiştir</button></div>`;
+  } else {
+    html = `<details ${settings.uploadMode === 'youtube' ? 'open' : ''}><summary>YouTube bağlı değil — kurulum (bir kerelik)</summary>
+      <p class="muted">README'deki <b>“YouTube otomatik yükleme kurulumu”</b> adımlarıyla Google Cloud'dan bir <b>Desktop app</b> OAuth istemcisi oluştur,
+      indirdiğin JSON dosyasını seç ya da Client ID / Secret'ı yapıştır. Bilgiler sadece bu bilgisayarda (data/ klasörü) saklanır.</p>
+      <div class="row wrap">
+        <label class="file">JSON dosyası seç<input id="ytJson" type="file" accept=".json,application/json" /></label>
+        <input id="ytId" type="text" placeholder="Client ID (...apps.googleusercontent.com)" />
+        <input id="ytSecret" type="text" placeholder="Client Secret" />
+        <button id="ytSave">Kaydet</button>
+      </div></details>`;
+  }
+  if (settings.uploadMode === 'youtube') {
+    html += `<p class="warn">⚠️ Google, denetimden (audit) geçmemiş API projelerinden yüklenen videoları <b>“özel” olarak kilitler</b>.
+      Denetim onayı gelene kadar “Sadece üret” modunu kullanman önerilir (README'de başvuru adımı var).</p>`;
+  }
+  box.innerHTML = html;
+  $('#ytDisconnect')?.addEventListener('click', () => api('POST', '/api/youtube/disconnect').then(loadQueue));
+  $('#ytReset')?.addEventListener('click', () => api('POST', '/api/youtube/disconnect').then(() => {
+    box.innerHTML = '';
+    renderYoutubeBox({ configured: false }, settings);
+  }));
+  $('#ytSave')?.addEventListener('click', async () => {
+    try {
+      const f = $('#ytJson').files?.[0];
+      const body = f ? { json: await f.text() } : { clientId: $('#ytId').value, clientSecret: $('#ytSecret').value };
+      await api('POST', '/api/youtube/client', body);
+      setStatus('OAuth bilgileri kaydedildi. Şimdi “Google hesabıyla bağlan”a tıkla.');
+      loadQueue(true);
+    } catch (e) {
+      setStatus('Hata: ' + e.message);
+    }
+  });
+}
+
+function renderQueue(q) {
+  queuedFixtures = new Set(q.jobs.filter((j) => j.status !== 'failed').map((j) => j.fixture.id));
+  $('#qUpload').value = q.settings.uploadMode;
+  if (document.activeElement !== $('#qLead')) $('#qLead').value = q.settings.leadMinutes;
+  const list = $('#qList');
+  if (!q.jobs.length) {
+    list.innerHTML = '<div class="muted">Kuyruk boş. Yukarıdaki fikstürde maçların yanındaki ＋ ile ekle.</div>';
+    return;
+  }
+  list.innerHTML = q.jobs.map((j) => {
+    const [label, cls] = STATUS[j.status] || [j.status, ''];
+    const f = j.fixture;
+    const yt = j.youtube;
+    const pub = yt?.publishAt || j.plannedPublishAt;
+    let info = '';
+    if (j.status === 'scheduled') info = pub ? `Yayın: ${fmtWhen(pub)}` : 'Yayında';
+    else if (j.status === 'ready' && pub) info = `Studio'da şu saate zamanla: <b>${fmtWhen(pub)}</b>`;
+    else if (j.error) info = `<span class="err">${escapeHtml(j.error)}</span>`;
+    const score = j.result ? ` · tahmin ${j.result.score[0]}-${j.result.score[1]}` : '';
+    return `<div class="q-item" data-id="${j.id}">
+      <div class="q-main">
+        <div class="q-title">${escapeHtml(f.home.name)} – ${escapeHtml(f.away.name)}</div>
+        <div class="q-meta">${escapeHtml(f.league)} · ${fmtWhen(f.date)} · ${escapeHtml(getMode(j.modeId).meta.name)}${score}</div>
+        ${info ? `<div class="q-info">${info}</div>` : ''}
+      </div>
+      <span class="q-status ${cls}">${label}</span>
+      <div class="q-actions">
+        ${j.dir && j.result ? '<button data-act="open" title="Klasörü aç">📂</button>' : ''}
+        ${yt?.url ? `<a href="${yt.url}" target="_blank" rel="noopener" title="YouTube'da aç">▶</a>` : ''}
+        ${j.status === 'failed' ? '<button data-act="retry" title="Tekrar dene">↻</button>' : ''}
+        ${['rendering', 'uploading'].includes(j.status) ? '' : '<button data-act="del" title="Kuyruktan çıkar">✕</button>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadQueue(force = false) {
+  try {
+    const q = await (await fetch('/api/queue')).json();
+    const sig = JSON.stringify(q);
+    if (!force && sig === queueSig) return;
+    const fixturesChanged = JSON.stringify([...queuedFixtures].sort()) !== JSON.stringify(q.jobs.filter((j) => j.status !== 'failed').map((j) => j.fixture.id).sort());
+    queueSig = sig;
+    renderQueue(q);
+    renderYoutubeBox(q.youtube, q.settings);
+    if (fixturesChanged && fixtures.length) renderFixtures();
+  } catch { /* sunucu kapalı olabilir */ }
+}
+
+fxList.addEventListener('click', async (e) => {
+  const b = e.target.closest('.fx-add');
+  if (!b || b.disabled) return;
+  e.stopPropagation();
+  const m = fixtures[+b.dataset.k];
+  const lang = langSel.value;
+  b.disabled = true;
+  try {
+    await api('POST', '/api/queue', {
+      fixture: m,
+      modeId: $('#mode').value,
+      settings: { duration: +$('#duration').value, influence: +influence.value / 100, homeAdvantage: $('#home').checked, lang, overrides: overridesFor(lang) },
+    });
+    setStatus(`Kuyruğa eklendi: ${m.home.name} - ${m.away.name}`);
+    loadQueue(true);
+  } catch (err) {
+    b.disabled = false;
+    setStatus('Eklenemedi: ' + err.message);
+  }
+});
+
+$('#qList').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-act]');
+  if (!b) return;
+  const id = b.closest('.q-item').dataset.id;
+  try {
+    if (b.dataset.act === 'del') await api('DELETE', `/api/queue/${id}`);
+    if (b.dataset.act === 'retry') await api('POST', `/api/queue/${id}/retry`);
+    if (b.dataset.act === 'open') await api('POST', `/api/queue/${id}/open`);
+    loadQueue(true);
+  } catch (err) {
+    setStatus('Hata: ' + err.message);
+  }
+});
+const saveQueueSettings = () => api('POST', '/api/queue/settings', { uploadMode: $('#qUpload').value, leadMinutes: +$('#qLead').value }).then(() => loadQueue(true)).catch((e) => setStatus('Hata: ' + e.message));
+$('#qUpload').addEventListener('change', saveQueueSettings);
+$('#qLead').addEventListener('change', saveQueueSettings);
+setInterval(loadQueue, 4000);
+loadQueue(true);
+{
+  const yt = new URLSearchParams(location.search).get('youtube');
+  if (yt) {
+    setStatus(yt === 'ok' ? '✅ YouTube hesabı bağlandı.' : 'YouTube bağlantısı başarısız: ' + yt);
+    history.replaceState(null, '', '/');
+  }
+}
+
 // Açılış: turnuva listesi, bugünün maçları ve varsayılan takımlar
 loadCompetitions().then(loadFixtures);
 (async () => {

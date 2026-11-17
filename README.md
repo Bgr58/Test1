@@ -7,7 +7,8 @@ Sonuç 1080×1920 dikey video (MP4, desteklenmezse WebM) olarak iner.
 
 ## Kurulum ve çalıştırma
 
-Gereken tek şey **Node.js 18+** (<https://nodejs.org>, LTS sürümü). Hiçbir npm paketi kurulmaz.
+Gereken tek şey **Node.js 18+** (<https://nodejs.org>, LTS sürümü). Otomatik kuyruk için tek bir paket
+(`playwright-core`, Windows'taki Edge'i arka planda kullanır) gerekir; `baslat.bat` bunu ilk açılışta kendisi kurar.
 
 **Windows:** Klasördeki `baslat.bat` dosyasına çift tıkla. Tarayıcı kendiliğinden açılır.
 Açılan siyah pencereyi kapatma; araç o pencere açıkken çalışır.
@@ -68,6 +69,49 @@ Turnuva eklemek için `data.js` içindeki `COMPETITIONS` listesine ESPN lig kodu
 
 > **Seed:** Aynı seed + aynı ayarlar = birebir aynı maç ve skor. Boş bırakılırsa her seferinde rastgele seçilir. Kullanılan seed sonuç kartında yazar.
 
+## 🤖 Otomatik kuyruk
+
+1. **Günün maçları** listesinde maçların yanındaki **＋** ile istediğin maçları kuyruğa ekle.
+   Format, süre, güç etkisi, dil ve metinler eklediğin andaki ayarlardan alınır. "Rastgele" seçiliyse formatlar sırayla dağıtılır.
+2. Araç açık olduğu sürece kuyruk arka planda (görünmez bir Edge/Chrome penceresinde) sırayla işlenir.
+   Video başına yaklaşık 1 dakika sürer.
+3. Her maç için `output/<tarih>/<saat>_<ev>_vs_<deplasman>/` klasörüne şunlar kaydedilir:
+   video, kapak ve `bilgi.txt` (YouTube başlık/açıklaması ve önerilen yayın saati).
+4. **Yükleme** ayarı:
+   - **Sadece üret:** Videoyu YouTube Studio'dan sen yüklersin. Panelde ve `bilgi.txt`'de yazan saate
+     (varsayılan maçtan 60 dk önce) "Zamanla" ile planla.
+   - **YouTube'a otomatik yükle:** Video, yayın saatine zamanlanmış olarak yüklenir. Yayına alma işini YouTube yapar,
+     o saatte bilgisayarın açık olması gerekmez. Kurulum aşağıda.
+5. Bilgisayar açılınca aracın kendiliğinden başlaması için `otomatik-baslat-ekle.bat` dosyasına bir kere çift tıkla.
+   Kaldırmak için `otomatik-baslat-kaldir.bat`.
+
+Bilgisayar kapalıyken maç saati gelirse o maç "Kaçırıldı" olur. Bilgisayar açılınca, başlamamış maçların videoları hemen üretilir.
+
+## 📤 YouTube otomatik yükleme kurulumu (bir kerelik, ücretsiz)
+
+> ⚠️ **Önemli:** Google, denetimden geçmemiş API projelerinden yüklenen videoları **"özel" olarak kilitler**
+> ve bu videolar sonradan herkese açık yapılamaz. Bu yüzden önce kurulumu yap ve **denetim başvurusunu** gönder (6. adım).
+> Onay gelene kadar "Sadece üret" modunu kullan.
+
+1. <https://console.cloud.google.com> adresinde YouTube kanalının bağlı olduğu Google hesabıyla giriş yap ve **yeni proje** oluştur (ör. "Mac Tahmin").
+2. **APIs & Services → Library** bölümünde **"YouTube Data API v3"** ara ve **Enable** de.
+3. **OAuth consent screen** (Google Auth Platform) bölümünde:
+   - Kullanıcı türü **External**, uygulama adı (ör. "Mac Tahmin"), destek e-postası ve geliştirici e-postası gir.
+   - **Audience** bölümünde uygulamayı **"In production"** (Publish app) yap. *Testing* modunda izin 7 günde bir düşer.
+4. **Credentials → Create credentials → OAuth client ID** → Application type: **Desktop app** → Create → **Download JSON**.
+5. Panelde **Otomatik kuyruk → Yükleme: YouTube'a otomatik yükle** seç. Açılan kutuda **JSON dosyası seç → Kaydet → Google hesabıyla bağlan**.
+   - Google "Bu uygulama doğrulanmadı" derse: **Gelişmiş → (uygulama adı)'na git** ve izin ver. Uygulama senin kendi uygulaman.
+   - Birden çok kanalın varsa doğru kanalı seç. Panelde "Bağlı kanal: …" yazar.
+6. **Denetim başvurusu:** "YouTube API Services – Audit and Quota Extension Form"
+   (<https://support.google.com/youtube/contact/yt_api_form>). Kullanım amacı olarak kendi kanalına
+   kendi ürettiğin videoları zamanlanmış yüklediğini anlat. Onay gelince "YouTube'a otomatik yükle" moduna geç.
+   Klasörde bekleyen, henüz başlamamış maçların videoları da otomatik yüklenir.
+
+Notlar:
+- Varsayılan API kotası günde yaklaşık 6 video yüklemeye yeter; daha fazlası için aynı formdan kota artışı istenir.
+- Kimlik bilgileri sadece bu bilgisayarda, `data/` klasöründe saklanır. Bu klasörü kimseyle paylaşma.
+- Shorts kapağı API ile ayarlanamayabilir (YouTube reddederse panelde yazar). O durumda kapağı telefondaki YouTube uygulamasından ekle.
+
 ## Oyun formatları
 
 | Mod | Nasıl gol olur? |
@@ -99,7 +143,11 @@ Tüm sesler Web Audio ile sentezlenir. Ses dosyası kullanılmadığı için tel
 ```
 server.js               statik sunucu + API uçları (/api/teams, /api/fixtures, /api/elo, /api/img)
 data.js                 ESPN / ClubElo / eloratings veri katmanı, önbellek, kulüp renkleri
-baslat.bat              Windows için çift tıkla başlat
+baslat.bat              Windows için çift tıkla başlat (ilk açılışta gerekli bileşeni kurar)
+otomatik-baslat-*.bat   bilgisayar açılınca otomatik başlatmayı ekle/kaldır
+automation.js           otomatik kuyruk: arka planda üretim, klasöre kayıt, yayın zamanlama
+youtube.js              YouTube Data API: Google ile bağlanma, zamanlanmış yükleme, kapak
+public/render.html      kuyruk için görünmez üretici sayfa (js/autorender.js)
 public/index.html       arayüz
 public/js/app.js        arayüz mantığı, kayıt akışı
 public/js/match.js      maç akışı (sabit adımlı, deterministik; Node'da da çalışır)

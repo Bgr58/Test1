@@ -2,3 +2,5 @@ node_modules/
 *.mp4
 *.webm
 .DS_Store
+data/
+output/

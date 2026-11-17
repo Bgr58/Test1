@@ -1,0 +1,349 @@
+// Otomatik kuyruk: seçilen maçların videolarını arka planda (görünmez tarayıcıda) üretir,
+// output/ klasörüne kaydeder ve YouTube bağlıysa maç saatinden önce yayına girecek şekilde zamanlar.
+import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
+import path from 'node:path';
+import crypto from 'node:crypto';
+
+const MODES = ['ring', 'plinko', 'football', 'race'];
+const MAX_ATTEMPTS = 3;
+const RETRY_MS = 3 * 60_000;
+
+export const DEFAULT_SETTINGS = {
+  uploadMode: 'off', // 'off' = sadece üret (klasöre), 'youtube' = otomatik yükle
+  leadMinutes: 60, // maç saatinden kaç dakika önce yayına girsin
+};
+
+const slug = (s) =>
+  String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ı/g, 'i').replace(/[^a-zA-Z0-9]+/g, '').slice(0, 24) || 'takim';
+
+// Yayın zamanı kararı (saf fonksiyon; test edilir)
+//  - maç başlamışsa: kaçırıldı
+//  - yayın saati çok yakın/geçmişse: hemen yayınla
+//  - değilse: o saate zamanla
+export function publishPlan(kickoffIso, leadMinutes, now = Date.now()) {
+  const kickoff = new Date(kickoffIso).getTime();
+  if (!Number.isFinite(kickoff)) return { action: 'invalid' };
+  if (kickoff <= now) return { action: 'missed' };
+  const at = kickoff - leadMinutes * 60_000;
+  // YouTube publishAt için birkaç dakikalık pay bırak
+  if (at <= now + 10 * 60_000) return { action: 'now', publishAt: null };
+  return { action: 'schedule', publishAt: new Date(at).toISOString() };
+}
+
+export class Automation {
+  constructor({ root, port, youtube, log = console }) {
+    this.root = root;
+    this.port = port;
+    this.yt = youtube;
+    this.log = log;
+    this.dataDir = path.join(root, 'data');
+    this.outDir = path.join(root, 'output');
+    this.file = path.join(this.dataDir, 'queue.json');
+    this.state = { jobs: [], rotation: 0, settings: { ...DEFAULT_SETTINGS } };
+    this.busy = false;
+    this.waiters = new Map(); // jobId -> {resolve, reject}
+    this.timer = null;
+  }
+
+  async load() {
+    try {
+      const j = JSON.parse(await readFile(this.file, 'utf8'));
+      this.state = { ...this.state, ...j, settings: { ...DEFAULT_SETTINGS, ...(j.settings || {}) } };
+    } catch {
+      /* ilk çalıştırma */
+    }
+    // yarıda kalan işler (bilgisayar kapanmış olabilir) tekrar sıraya
+    for (const j of this.state.jobs) {
+      if (j.status === 'rendering') j.status = 'queued';
+      if (j.status === 'uploading') j.status = 'rendered';
+    }
+    await this.save();
+  }
+
+  async save() {
+    await mkdir(this.dataDir, { recursive: true });
+    const tmp = this.file + '.tmp';
+    await writeFile(tmp, JSON.stringify(this.state, null, 2));
+    await rename(tmp, this.file);
+  }
+
+  start(intervalMs = 15_000) {
+    const tick = () => this.tick().catch((e) => this.log.error('[kuyruk]', e));
+    this.timer = setInterval(tick, intervalMs);
+    setTimeout(tick, 2000);
+  }
+
+  stop() {
+    clearInterval(this.timer);
+  }
+
+  publicState() {
+    return { jobs: this.state.jobs, settings: this.state.settings };
+  }
+
+  async updateSettings(s) {
+    const next = { ...this.state.settings };
+    if (s.uploadMode === 'off' || s.uploadMode === 'youtube') next.uploadMode = s.uploadMode;
+    if (Number.isFinite(+s.leadMinutes)) next.leadMinutes = Math.max(0, Math.min(24 * 60, Math.round(+s.leadMinutes)));
+    this.state.settings = next;
+    // YouTube'a geçildiyse: klasörde bekleyen (henüz başlamamış maçların) videolarını da yükle
+    if (next.uploadMode === 'youtube') {
+      for (const j of this.state.jobs) if (j.status === 'ready' && new Date(j.fixture.date) > Date.now()) j.status = 'rendered';
+    }
+    await this.save();
+    this.kick();
+  }
+
+  getJob(id) {
+    return this.state.jobs.find((j) => j.id === id);
+  }
+
+  async addJob({ fixture, modeId, settings }) {
+    if (!fixture?.id || !fixture.home?.name || !fixture.away?.name || !fixture.date) throw new Error('Eksik maç bilgisi');
+    const dup = this.state.jobs.find((j) => j.fixture.id === fixture.id && j.status !== 'failed');
+    if (dup) throw new Error('Bu maç zaten kuyrukta');
+    let mode = modeId;
+    if (!MODES.includes(mode)) {
+      mode = MODES[this.state.rotation % MODES.length];
+      this.state.rotation++;
+    }
+    const pick = (t) => ({
+      id: t.id, name: t.name, color: t.color, color2: t.color2, logo: t.logo, knownColors: !!t.knownColors, national: !!fixture.national,
+    });
+    const job = {
+      id: crypto.randomBytes(6).toString('hex'),
+      createdAt: new Date().toISOString(),
+      fixture: {
+        id: String(fixture.id), date: fixture.date, league: fixture.league, leagueEn: fixture.leagueEn || fixture.league,
+        national: !!fixture.national, home: pick(fixture.home), away: pick(fixture.away),
+      },
+      modeId: mode,
+      settings: {
+        duration: [30, 45, 60].includes(+settings?.duration) ? +settings.duration : 45,
+        influence: Math.max(0, Math.min(1, +settings?.influence || 0.4)),
+        homeAdvantage: settings?.homeAdvantage !== false,
+        lang: settings?.lang || 'en',
+        overrides: settings?.overrides && typeof settings.overrides === 'object' ? settings.overrides : {},
+      },
+      status: 'queued',
+      attempts: 0,
+      nextTryAt: 0,
+      error: '',
+      result: null,
+      youtube: null,
+    };
+    this.state.jobs.push(job);
+    this.state.jobs.sort((a, b) => a.fixture.date.localeCompare(b.fixture.date));
+    await this.save();
+    this.kick();
+    return job;
+  }
+
+  async removeJob(id) {
+    const j = this.getJob(id);
+    if (!j) return;
+    if (j.status === 'rendering' || j.status === 'uploading') throw new Error('İşlenirken silinemez, biraz bekle');
+    this.state.jobs = this.state.jobs.filter((x) => x.id !== id);
+    await this.save();
+  }
+
+  async retryJob(id) {
+    const j = this.getJob(id);
+    if (!j) throw new Error('İş bulunamadı');
+    j.attempts = 0;
+    j.nextTryAt = 0;
+    j.error = '';
+    j.status = j.result ? 'rendered' : 'queued';
+    await this.save();
+    this.kick();
+  }
+
+  kick() {
+    setTimeout(() => this.tick().catch((e) => this.log.error('[kuyruk]', e)), 100);
+  }
+
+  // Bir sonraki işi seç ve işle (aynı anda tek iş)
+  async tick() {
+    if (this.busy) return;
+    const now = Date.now();
+    const job = this.state.jobs.find((j) => (j.status === 'queued' || j.status === 'rendered') && (j.nextTryAt || 0) <= now);
+    if (!job) return;
+    this.busy = true;
+    try {
+      if (new Date(job.fixture.date).getTime() <= now) {
+        job.status = 'missed';
+        job.error = 'Maç başladı; video zamanında üretilemedi';
+        await this.save();
+        return;
+      }
+      if (job.status === 'queued') await this.render(job);
+      if (job.status === 'rendered') await this.publish(job);
+    } catch (e) {
+      job.attempts++;
+      job.error = e.message;
+      if (job.attempts >= MAX_ATTEMPTS) job.status = 'failed';
+      else {
+        job.status = job.result ? 'rendered' : 'queued';
+        job.nextTryAt = Date.now() + RETRY_MS * job.attempts;
+      }
+      this.log.warn(`[kuyruk] ${job.fixture.home.name}-${job.fixture.away.name}: ${e.message}`);
+      await this.save();
+    } finally {
+      this.busy = false;
+    }
+    this.kick(); // sıradaki işe geç
+  }
+
+  // ------------------------------------------------------------ üretim
+  jobDir(job) {
+    const d = new Date(job.fixture.date);
+    const day = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const hm = `${String(d.getHours()).padStart(2, '0')}-${String(d.getMinutes()).padStart(2, '0')}`;
+    return path.join(this.outDir, day, `${hm}_${slug(job.fixture.home.name)}_vs_${slug(job.fixture.away.name)}`);
+  }
+
+  // Görünmez tarayıcı: önce Windows'taki Edge, sonra Chrome, en son Playwright'ın kendi Chromium'u
+  async launchBrowser() {
+    let pw;
+    try {
+      pw = await import('playwright-core');
+    } catch {
+      try {
+        pw = await import('playwright');
+      } catch {
+        throw new Error('Arka plan üretimi için "npm install" gerekli (playwright-core bulunamadı). baslat.bat bunu kendisi yapar.');
+      }
+    }
+    const chromium = pw.chromium || pw.default?.chromium;
+    const args = ['--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'];
+    const tries = [];
+    if (process.env.BROWSER_PATH) tries.push({ executablePath: process.env.BROWSER_PATH });
+    tries.push({ channel: 'msedge' }, { channel: 'chrome' }, {});
+    let lastErr;
+    for (const t of tries) {
+      try {
+        return await chromium.launch({ headless: true, args, ...t });
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw new Error(`Tarayıcı başlatılamadı (Edge/Chrome bulunamadı): ${lastErr?.message?.split('\n')[0]}`);
+  }
+
+  async render(job) {
+    job.status = 'rendering';
+    job.error = '';
+    await this.save();
+    const dir = this.jobDir(job);
+    await mkdir(dir, { recursive: true });
+    job.dir = dir;
+    const browser = await this.launchBrowser();
+    const timeoutMs = (job.settings.duration + 120) * 1000;
+    try {
+      const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
+      page.on('pageerror', (e) => this.log.warn('[üretici sayfa]', e.message));
+      const done = new Promise((resolve, reject) => {
+        this.waiters.set(job.id, { resolve, reject });
+        setTimeout(() => reject(new Error('Video üretimi zaman aşımına uğradı')), timeoutMs);
+      });
+      await page.goto(`http://127.0.0.1:${this.port}/render.html?job=${job.id}`);
+      const result = await done;
+      job.result = result;
+      job.status = 'rendered';
+      job.attempts = 0;
+      await this.writeInfo(job);
+      await this.save();
+      this.log.log(`✓ Video hazır: ${job.fixture.home.name} - ${job.fixture.away.name} (${result.modeId})`);
+    } finally {
+      this.waiters.delete(job.id);
+      await browser.close().catch(() => {});
+    }
+  }
+
+  // Üretici sayfa dosyaları buraya gönderir
+  async saveFile(job, name, stream) {
+    const allowed = ['video.mp4', 'video.webm', 'cover.jpg'];
+    if (!allowed.includes(name)) throw new Error('Geçersiz dosya adı');
+    const dir = job.dir || this.jobDir(job);
+    await mkdir(dir, { recursive: true });
+    const base = `${slug(job.fixture.home.name)}_vs_${slug(job.fixture.away.name)}`;
+    const target = name === 'cover.jpg' ? `${base}_cover.jpg` : `${base}${path.extname(name)}`;
+    await pipeline(stream, createWriteStream(path.join(dir, target)));
+    return target;
+  }
+
+  rendered(jobId, data) {
+    const w = this.waiters.get(jobId);
+    if (!w) throw new Error('Bu iş için bekleyen üretim yok');
+    w.resolve(data);
+  }
+
+  failed(jobId, message) {
+    const w = this.waiters.get(jobId);
+    if (w) w.reject(new Error(message || 'Üretim hatası'));
+  }
+
+  async writeInfo(job) {
+    const r = job.result;
+    const plan = publishPlan(job.fixture.date, this.state.settings.leadMinutes);
+    const fmt = (iso) => new Date(iso).toLocaleString('tr-TR', { dateStyle: 'full', timeStyle: 'short' });
+    const txt = [
+      `MAÇ: ${job.fixture.home.name} - ${job.fixture.away.name} (${job.fixture.league})`,
+      `Maç saati: ${fmt(job.fixture.date)}`,
+      plan.publishAt ? `Önerilen yayın saati (maçtan ${this.state.settings.leadMinutes} dk önce): ${fmt(plan.publishAt)}` : 'Önerilen yayın: hemen',
+      `Tahmin (sadece sen gör, başlığa yazma): ${r.score[0]}-${r.score[1]} · format: ${r.modeId} · seed: ${r.seed}`,
+      '',
+      '=== YOUTUBE BAŞLIK ===',
+      r.title,
+      '',
+      '=== YOUTUBE AÇIKLAMA ===',
+      r.desc,
+      '',
+    ].join('\r\n');
+    await writeFile(path.join(job.dir, 'bilgi.txt'), '﻿' + txt, 'utf8');
+  }
+
+  // ------------------------------------------------------------ yayın
+  async publish(job) {
+    const plan = publishPlan(job.fixture.date, this.state.settings.leadMinutes);
+    if (plan.action === 'missed') {
+      job.status = 'missed';
+      await this.save();
+      return;
+    }
+    job.plannedPublishAt = plan.publishAt || new Date().toISOString();
+    const yt = this.state.settings.uploadMode === 'youtube' ? await this.yt.status() : null;
+    if (!yt?.connected) {
+      // sadece üret modu: video klasörde, kullanıcı elle yükler
+      job.status = 'ready';
+      await this.save();
+      return;
+    }
+    job.status = 'uploading';
+    await this.save();
+    const r = job.result;
+    const base = `${slug(job.fixture.home.name)}_vs_${slug(job.fixture.away.name)}`;
+    const up = await this.yt.uploadVideo({
+      file: path.join(job.dir, `${base}.${r.ext}`),
+      title: r.title,
+      description: r.desc,
+      tags: [job.fixture.home.name, job.fixture.away.name, job.fixture.leagueEn, 'football prediction', 'score prediction', 'shorts'],
+      publishAt: plan.publishAt,
+    });
+    job.youtube = { id: up.id, url: `https://youtube.com/shorts/${up.id}`, publishAt: plan.publishAt, uploadedAt: new Date().toISOString() };
+    try {
+      await this.yt.setThumbnail(up.id, path.join(job.dir, `${base}_cover.jpg`));
+      job.youtube.thumbnail = true;
+    } catch (e) {
+      job.youtube.thumbnail = false;
+      job.youtube.thumbnailError = e.message;
+    }
+    job.status = 'scheduled';
+    job.attempts = 0;
+    job.error = '';
+    await this.save();
+    this.log.log(`✓ YouTube'a yüklendi: ${job.youtube.url}`);
+  }
+}

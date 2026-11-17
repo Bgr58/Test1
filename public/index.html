@@ -29,7 +29,26 @@
           </div>
         </div>
         <div id="fxList" class="fx-list"></div>
-        <small class="muted">Bir maça tıkla: iki takım, logolar, renkler, güç ve alt başlık otomatik dolar. Ya da aşağıdan takımları kendin seç.</small>
+        <small class="muted">Bir maça tıkla: iki takım, logolar, renkler, güç ve alt başlık otomatik dolar. ＋ ile otomatik kuyruğa ekle.</small>
+      </section>
+
+      <section class="queue">
+        <div class="fx-head">
+          <h2>🤖 Otomatik kuyruk</h2>
+          <div class="row fx-controls">
+            <label class="inline">Yükleme
+              <select id="qUpload">
+                <option value="off">Sadece üret (klasöre kaydet)</option>
+                <option value="youtube">YouTube'a otomatik yükle</option>
+              </select>
+            </label>
+            <label class="inline">Yayın: maçtan <input id="qLead" type="number" min="0" max="1440" step="5" value="60" /> dk önce</label>
+          </div>
+        </div>
+        <div id="qYoutube" class="q-yt"></div>
+        <div id="qList" class="q-list"></div>
+        <small class="muted">Videolar, maçı eklediğin andaki format, süre, güç etkisi, dil ve metin ayarlarıyla arka planda sırayla üretilir.
+          Araç açık olduğu sürece kuyruk işlenir. YouTube'a zamanlanan videoyu YouTube kendisi yayınlar, o saatte bilgisayarın açık olması gerekmez.</small>
       </section>
 
       <div class="teams">

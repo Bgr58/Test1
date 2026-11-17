@@ -55,7 +55,15 @@ export class YouTube {
 
   async status() {
     const client = await this.readJson(this.clientFile);
-    const token = await this.readJson(this.tokenFile);
+    let token = await this.readJson(this.tokenFile);
+    // Kanal adı ilk bağlantıda alınamadıysa (ör. API henüz etkin değildi) dakikada bir tekrar dene
+    if (token?.refresh_token && !token.channelTitle && Date.now() - (this.lastChannelTry || 0) > 60_000) {
+      this.lastChannelTry = Date.now();
+      try {
+        await this.refreshChannel();
+        token = await this.readJson(this.tokenFile);
+      } catch { /* sonra tekrar denenir */ }
+    }
     return {
       configured: !!client,
       connected: !!token?.refresh_token,
@@ -97,14 +105,20 @@ export class YouTube {
     if (!r.ok || !j.refresh_token) throw new Error(`Token alınamadı: ${j.error_description || j.error || r.status}`);
     const token = { refresh_token: j.refresh_token, access_token: j.access_token, expiry: Date.now() + (j.expires_in - 60) * 1000 };
     await this.writeJson(this.tokenFile, token);
-    // hangi kanala bağlandığını göster (yanlış kanala yüklemeyi önlemek için)
     try {
-      const ch = await this.api('GET', '/channels?part=snippet&mine=true');
-      const c = ch.items?.[0];
-      if (c) await this.writeJson(this.tokenFile, { ...token, channelTitle: c.snippet?.title || '', channelId: c.id });
+      await this.refreshChannel();
     } catch (e) {
       console.warn('[youtube] kanal bilgisi alınamadı:', e.message);
     }
+  }
+
+  // Hangi kanala bağlandığını göster (yanlış kanala yüklemeyi önlemek için)
+  async refreshChannel() {
+    const ch = await this.api('GET', '/channels?part=snippet&mine=true');
+    const c = ch.items?.[0];
+    if (!c) throw new Error('Bu hesapta YouTube kanalı bulunamadı');
+    const token = await this.readJson(this.tokenFile);
+    await this.writeJson(this.tokenFile, { ...token, channelTitle: c.snippet?.title || '', channelId: c.id });
   }
 
   async disconnect() {

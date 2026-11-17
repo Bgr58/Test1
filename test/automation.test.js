@@ -104,3 +104,45 @@ test('YouTube: bağlanma, zamanlanmış yükleme, kapak hatası yüklemeyi bozma
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('YouTube: kanal adı ilk bağlantıda alınamazsa sonradan alınır; hazır olan işte eski hata kalmaz', async () => {
+  let channelOk = false;
+  const mock = http.createServer(async (req, res) => {
+    for await (const _ of req);
+    const u = new URL(req.url, 'http://x');
+    const json = (s, o) => { res.writeHead(s, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
+    if (u.pathname === '/token') return json(200, { access_token: 'A', refresh_token: 'R', expires_in: 3600 });
+    if (u.pathname === '/yt/channels') {
+      return channelOk ? json(200, { items: [{ id: 'UC9', snippet: { title: 'Kickcall' } }] })
+        : json(403, { error: { message: 'YouTube Data API v3 has not been used', errors: [{ reason: 'accessNotConfigured' }] } });
+    }
+    json(404, {});
+  });
+  await new Promise((r) => mock.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${mock.address().port}`;
+  Object.assign(process.env, { YT_AUTH_URL: base + '/auth', YT_TOKEN_URL: base + '/token', YT_API_URL: base + '/yt', YT_UPLOAD_URL: base + '/up' });
+  const { YouTube } = await import('../youtube.js?mock2=' + Date.now());
+  const root = await mkdtemp(path.join(os.tmpdir(), 'yt2-'));
+  try {
+    const yt = new YouTube(path.join(root, 'data'));
+    await yt.saveClient({ clientId: '1-a.apps.googleusercontent.com', clientSecret: 's' });
+    const url = new URL(await yt.authUrl('http://localhost:3000/cb'));
+    await yt.handleCallback({ code: 'c', state: url.searchParams.get('state') }, 'http://localhost:3000/cb');
+    assert.equal((await yt.status()).channelTitle, '');
+    channelOk = true; // kullanıcı API'yi etkinleştirdi
+    yt.lastChannelTry = 0;
+    assert.equal((await yt.status()).channelTitle, 'Kickcall');
+
+    const a = new Automation({ root, port: 0, youtube: yt, log: { log() {}, warn() {}, error() {} } });
+    await a.load();
+    a.kick = () => {};
+    const job = await a.addJob({ fixture: fixture('m2', 30), modeId: 'ring', settings: {} });
+    Object.assign(job, { status: 'rendered', error: 'eski hata', attempts: 1, result: { score: [0, 0], modeId: 'ring', seed: 1, ext: 'mp4', title: 't', desc: 'd' } });
+    await a.tick(); // yükleme modu 'off' → klasörde hazır
+    assert.equal(job.status, 'ready');
+    assert.equal(job.error, '');
+  } finally {
+    mock.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});

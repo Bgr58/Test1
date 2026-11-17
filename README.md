@@ -22,6 +22,18 @@ node server.js
 Ardından **Chrome** veya **Edge** ile <http://localhost:3000> adresini aç.
 Kayıt sırasında sekme açık ve görünür kalmalı (tarayıcı arka plandaki sekmeyi yavaşlatır).
 
+### Güncelleme
+
+**Eski klasörü silme.** `data/` (YouTube bağlantısı, kuyruk) ve `output/` (üretilen videolar) klasörleri kaybolur.
+Aracı kapat (siyah pencerede Ctrl + C) ve yeni sürümü eskisinin üzerine çıkar (PowerShell):
+
+```powershell
+Invoke-WebRequest "https://github.com/Bgr58/Test1/archive/refs/heads/claude/sleepy-archimedes-mzmfp9.zip" -OutFile "$HOME\Desktop\mac-tahmin.zip"
+Expand-Archive "$HOME\Desktop\mac-tahmin.zip" -DestinationPath "$HOME\Desktop" -Force
+```
+
+`-Force` sadece aracın kendi dosyalarını yeniler; `data/` ve `output/` olduğu gibi kalır.
+
 ## Veri kaynakları (hepsi ücretsiz, anahtar gerekmez)
 
 | Ne | Kaynak |

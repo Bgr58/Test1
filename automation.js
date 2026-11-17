@@ -318,6 +318,8 @@ export class Automation {
     if (!yt?.connected) {
       // sadece üret modu: video klasörde, kullanıcı elle yükler
       job.status = 'ready';
+      job.error = '';
+      job.attempts = 0;
       await this.save();
       return;
     }

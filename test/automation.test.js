@@ -181,3 +181,24 @@ test('seç → format → başlat akışı: taslak üretilmez, başlatınca ayar
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('maç başına şans: seçilen değer başlatınca güç etkisi olur, seçilmezse ortak ayar kullanılır', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mt4-'));
+  try {
+    const a = new Automation({ root, port: 0, youtube: null, log: { log() {}, warn() {}, error() {} } });
+    await a.load();
+    a.kick = () => {};
+    const d1 = await a.addDraft({ fixture: fixture('l1', 20) });
+    const d2 = await a.addDraft({ fixture: fixture('l2', 21) });
+    const d3 = await a.addDraft({ fixture: fixture('l3', 22) });
+    await a.setLuck(d1.id, 0); // tam şans
+    await a.setLuck(d2.id, 0.8);
+    await a.setLuck(d3.id, 0.6);
+    await a.setLuck(d3.id, null); // ortak ayara geri dön
+    await a.startDrafts({ influence: 0.4 });
+    assert.deepEqual([d1, d2, d3].map((j) => j.settings.influence), [0, 0.8, 0.4]);
+    await assert.rejects(a.setLuck(d1.id, 0.2), /değiştirilemez/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

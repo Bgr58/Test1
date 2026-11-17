@@ -618,6 +618,13 @@ const STATUS = {
 const MODE_OPTS = [['random', '🎲 Rastgele'], ['ring', 'Dönen Halka'], ['plinko', 'Plinko Kalesi'], ['football', 'Mini Futbol'], ['race', 'Engelli Parkur']];
 const fmtWhen = (iso) => new Date(iso).toLocaleString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const modeName = (id) => MODE_OPTS.find(([k]) => k === id)?.[1] || id;
+// Maç başına şans: güç etkisi (0 = tamamen şans). '' = paneldeki ortak "Güç etkisi" ayarı
+const LUCK_OPTS = [['0', '🎲 Tam şans'], ['0.2', 'Çoğu şans'], ['0.4', 'Dengeli'], ['0.6', 'Güç ağırlıklı'], ['0.8', 'Güçlü favori']];
+const luckName = (v) => LUCK_OPTS.find(([k]) => +k === +v)?.[1] || `güç %${Math.round(v * 100)}`;
+const luckSelect = (j) => `<select class="q-luck" title="Şans: sonuç ne kadar şansa, ne kadar takım gücüne bağlı">
+  <option value="" ${j.luck == null ? 'selected' : ''}>Şans: ortak (%${influence.value})</option>
+  ${LUCK_OPTS.map(([k, v]) => `<option value="${k}" ${j.luck != null && +k === +j.luck ? 'selected' : ''}>${v}</option>`).join('')}
+</select>`;
 
 // Kuyruğun kendi dil ve süre ayarı (paneldeki önizleme dilinden bağımsız; varsayılan English)
 const qLang = $('#qLang');
@@ -675,13 +682,13 @@ function jobRow(j, draft) {
   const f = j.fixture;
   const logo = (t) => (t.logo ? `<img src="${t.logo}" alt="" loading="lazy" />` : '');
   const meta = [escapeHtml(f.league), fmtWhen(f.date)];
-  if (!draft) meta.push(escapeHtml(modeName(j.modeId)), escapeHtml(LANGS[j.settings?.lang]?.label || ''));
+  if (!draft) meta.push(escapeHtml(modeName(j.modeId)), escapeHtml(luckName(j.settings?.influence ?? 0.4)), escapeHtml(LANGS[j.settings?.lang]?.label || ''));
   if (j.result) meta.push(`tahmin ${j.result.score[0]}-${j.result.score[1]}`);
   let info = '';
   let side = '';
   let actions = '';
   if (draft) {
-    side = `<select class="q-mode" title="Görsel format">${MODE_OPTS.map(([k, v]) => `<option value="${k}" ${k === j.modeId ? 'selected' : ''}>${v}</option>`).join('')}</select>`;
+    side = `<div class="q-selects"><select class="q-mode" title="Görsel format">${MODE_OPTS.map(([k, v]) => `<option value="${k}" ${k === j.modeId ? 'selected' : ''}>${v}</option>`).join('')}</select>${luckSelect(j)}</div>`;
     actions = '<button data-act="del" title="Seçimden çıkar">✕</button>';
   } else {
     const [label, cls] = STATUS[j.status] || [j.status, ''];
@@ -766,12 +773,17 @@ fxList.addEventListener('click', async (e) => {
 });
 
 $('#qDrafts').addEventListener('change', async (e) => {
-  const sel = e.target.closest('.q-mode');
+  const sel = e.target.closest('.q-mode, .q-luck');
   if (!sel) return;
   const id = sel.closest('.q-row').dataset.id;
   try {
-    await api('POST', `/api/queue/${id}/mode`, { modeId: sel.value });
-    $('#qAllMode').value = '';
+    if (sel.classList.contains('q-mode')) {
+      await api('POST', `/api/queue/${id}/mode`, { modeId: sel.value });
+      $('#qAllMode').value = '';
+    } else {
+      await api('POST', `/api/queue/${id}/luck`, { luck: sel.value === '' ? null : +sel.value });
+      $('#qAllLuck').value = 'keep';
+    }
     loadQueue(true);
   } catch (err) {
     setStatus('Hata: ' + err.message);
@@ -789,6 +801,20 @@ $('#qAllMode').addEventListener('change', async () => {
     setStatus('Hata: ' + err.message);
   }
 });
+
+$('#qAllLuck').addEventListener('change', async () => {
+  const v = $('#qAllLuck').value;
+  if (v === 'keep' || !lastQueue) return;
+  const drafts = lastQueue.jobs.filter((j) => j.status === 'draft');
+  try {
+    await Promise.all(drafts.map((j) => api('POST', `/api/queue/${j.id}/luck`, { luck: v === '' ? null : +v })));
+    loadQueue(true);
+  } catch (err) {
+    setStatus('Hata: ' + err.message);
+  }
+});
+// ortak güç etkisi değişince "Şans: ortak (%X)" etiketleri güncellensin
+influence.addEventListener('change', () => lastQueue && renderQueue(lastQueue));
 
 $('#qStart').addEventListener('click', async () => {
   const lang = qLang.value;

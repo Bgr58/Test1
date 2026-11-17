@@ -116,6 +116,7 @@ export class Automation {
         national: !!fixture.national, home: pick(fixture.home), away: pick(fixture.away),
       },
       modeId: MODES.includes(modeId) ? modeId : 'random',
+      luck: null,
       settings: null,
       status: 'draft',
       attempts: 0,
@@ -139,6 +140,16 @@ export class Automation {
     await this.save();
   }
 
+  // Maç başına şans: null = başlatırken verilen ortak ayar; 0..1 = güç etkisi (0 = tamamen şans)
+  async setLuck(id, luck) {
+    const j = this.getJob(id);
+    if (!j) throw new Error('Maç bulunamadı');
+    if (j.status !== 'draft') throw new Error('Başlatılmış maçın şans ayarı değiştirilemez (önce seçilenlere geri al)');
+    j.luck = luck === null || luck === '' || luck === undefined ? null : Math.max(0, Math.min(1, +luck));
+    if (Number.isNaN(j.luck)) j.luck = null;
+    await this.save();
+  }
+
   // 3) Başlat: taslaklar o anki ayarlarla sıraya girer. "random" formatlar sırayla dağıtılır.
   async startDrafts(settings, ids = null) {
     const drafts = this.state.jobs.filter((j) => j.status === 'draft' && (!ids || ids.includes(j.id)));
@@ -155,7 +166,7 @@ export class Automation {
         j.modeId = MODES[this.state.rotation % MODES.length];
         this.state.rotation++;
       }
-      j.settings = { ...snap };
+      j.settings = { ...snap, influence: Number.isFinite(j.luck) ? j.luck : snap.influence };
       j.status = new Date(j.fixture.date).getTime() <= Date.now() ? 'missed' : 'queued';
     }
     await this.save();

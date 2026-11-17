@@ -50,6 +50,17 @@
                 <option value="race">Engelli Parkur</option>
               </select>
             </label>
+            <label>Tümünün şansı
+              <select id="qAllLuck">
+                <option value="keep">— maç başına seç —</option>
+                <option value="">Ortak ayar (paneldeki güç etkisi)</option>
+                <option value="0">🎲 Tam şans (%0 güç)</option>
+                <option value="0.2">Çoğu şans (%20 güç)</option>
+                <option value="0.4">Dengeli (%40 güç)</option>
+                <option value="0.6">Güç ağırlıklı (%60 güç)</option>
+                <option value="0.8">Güçlü favori (%80 güç)</option>
+              </select>
+            </label>
             <label>Video ve YouTube dili <select id="qLang"></select></label>
             <label>Oyun süresi
               <select id="qDuration"><option value="30">30 sn</option><option value="45">45 sn</option><option value="60">60 sn</option></select>
@@ -65,7 +76,7 @@
             </label>
           </div>
           <button id="qStart" class="primary" disabled>▶ Başlat</button>
-          <small class="muted">Güç etkisi, ev sahibi avantajı ve seçili dilin düzenlenmiş metinleri paneldeki ayarlardan alınır.</small>
+          <small class="muted"><b>Şans:</b> sonucun ne kadar şansa, ne kadar takım gücüne bağlı olacağı. “Tam şans”ta güçler hiç etkilemez; “Güçlü favori”de favori takım belirgin avantajlıdır ama yine de kaybedebilir. Ev sahibi avantajı ve seçili dilin düzenlenmiş metinleri paneldeki ayarlardan alınır.</small>
         </div>
 
         <div id="qYoutube" class="q-yt"></div>

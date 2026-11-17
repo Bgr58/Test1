@@ -86,7 +86,9 @@ Turnuva eklemek için `data.js` içindeki `COMPETITIONS` listesine ESPN lig kodu
 1. **Seç:** "Günün maçları" listesinde maçların yanındaki **＋** ile maçları seç. Seçilenler "1 · Seçilen maçlar" listesine gelir.
    Tekrar tıklayınca (✓) ya da listedeki ✕ ile seçimden çıkar. **Seçmek üretimi başlatmaz.**
 2. **Format ve ayarlar:** Her maç için görsel formatı seç ya da "Tümünün formatı" ile hepsine birden ver.
-   🎲 Rastgele seçilirse formatlar sırayla dağıtılır. **Video ve YouTube dili** (varsayılan English), oyun süresi,
+   🎲 Rastgele seçilirse formatlar sırayla dağıtılır. Her maça ayrıca bir **şans** seviyesi verilebilir (ya da "Tümünün şansı"):
+   🎲 Tam şans (güç hiç etkilemez), Çoğu şans, Dengeli, Güç ağırlıklı, Güçlü favori. Seçilmezse paneldeki ortak "Güç etkisi" kullanılır.
+   Örnek simülasyon (200 Elo fark + ev sahibi): "Güçlü favori"de favori ~%50–60 kazanır ama ~%20 kaybeder. **Video ve YouTube dili** (varsayılan English), oyun süresi,
    yükleme modu ve yayın zamanı da burada. Güç etkisi, ev sahibi avantajı ve düzenlenmiş metinler paneldeki ayarlardan alınır.
 3. **Başlat:** "▶ Seçilen N maçı başlat" ile maçlar "2 · Kuyruk ve sonuçlar"a geçer ve arka planda
    (görünmez bir Edge/Chrome penceresinde) sırayla üretilir. Video başına yaklaşık 1 dakika sürer.

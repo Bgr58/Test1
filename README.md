@@ -83,18 +83,23 @@ Turnuva eklemek için `data.js` içindeki `COMPETITIONS` listesine ESPN lig kodu
 
 ## 🤖 Otomatik kuyruk
 
-1. **Günün maçları** listesinde maçların yanındaki **＋** ile istediğin maçları kuyruğa ekle.
-   Format, süre, güç etkisi, dil ve metinler eklediğin andaki ayarlardan alınır. "Rastgele" seçiliyse formatlar sırayla dağıtılır.
-2. Araç açık olduğu sürece kuyruk arka planda (görünmez bir Edge/Chrome penceresinde) sırayla işlenir.
-   Video başına yaklaşık 1 dakika sürer.
-3. Her maç için `output/<tarih>/<saat>_<ev>_vs_<deplasman>/` klasörüne şunlar kaydedilir:
+1. **Seç:** "Günün maçları" listesinde maçların yanındaki **＋** ile maçları seç. Seçilenler "1 · Seçilen maçlar" listesine gelir.
+   Tekrar tıklayınca (✓) ya da listedeki ✕ ile seçimden çıkar. **Seçmek üretimi başlatmaz.**
+2. **Format ve ayarlar:** Her maç için görsel formatı seç ya da "Tümünün formatı" ile hepsine birden ver.
+   🎲 Rastgele seçilirse formatlar sırayla dağıtılır. **Video ve YouTube dili** (varsayılan English), oyun süresi,
+   yükleme modu ve yayın zamanı da burada. Güç etkisi, ev sahibi avantajı ve düzenlenmiş metinler paneldeki ayarlardan alınır.
+3. **Başlat:** "▶ Seçilen N maçı başlat" ile maçlar "2 · Kuyruk ve sonuçlar"a geçer ve arka planda
+   (görünmez bir Edge/Chrome penceresinde) sırayla üretilir. Video başına yaklaşık 1 dakika sürer.
+   Sırada bekleyen maçı ↩ ile seçilenlere geri alabilir (formatını değiştirmek için) ya da ✕ ile çıkarabilirsin.
+   YouTube'a yüklenmiş bir maçı listeden çıkarmak videoyu YouTube'dan silmez.
+4. Her maç için `output/<tarih>/<saat>_<ev>_vs_<deplasman>/` klasörüne şunlar kaydedilir:
    video, kapak ve `bilgi.txt` (YouTube başlık/açıklaması ve önerilen yayın saati).
-4. **Yükleme** ayarı:
+5. **Yükleme** ayarı:
    - **Sadece üret:** Videoyu YouTube Studio'dan sen yüklersin. Panelde ve `bilgi.txt`'de yazan saate
      (varsayılan maçtan 60 dk önce) "Zamanla" ile planla.
    - **YouTube'a otomatik yükle:** Video, yayın saatine zamanlanmış olarak yüklenir. Yayına alma işini YouTube yapar,
      o saatte bilgisayarın açık olması gerekmez. Kurulum aşağıda.
-5. Bilgisayar açılınca aracın kendiliğinden başlaması için `otomatik-baslat-ekle.bat` dosyasına bir kere çift tıkla.
+6. Bilgisayar açılınca aracın kendiliğinden başlaması için `otomatik-baslat-ekle.bat` dosyasına bir kere çift tıkla.
    Kaldırmak için `otomatik-baslat-kaldir.bat`.
 
 Bilgisayar kapalıyken maç saati gelirse o maç "Kaçırıldı" olur. Bilgisayar açılınca, başlamamış maçların videoları hemen üretilir.

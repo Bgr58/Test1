@@ -100,15 +100,11 @@ export class Automation {
     return this.state.jobs.find((j) => j.id === id);
   }
 
-  async addJob({ fixture, modeId, settings }) {
+  // 1) Seç: maç "taslak" olarak eklenir; üretim başlamaz
+  async addDraft({ fixture, modeId }) {
     if (!fixture?.id || !fixture.home?.name || !fixture.away?.name || !fixture.date) throw new Error('Eksik maç bilgisi');
-    const dup = this.state.jobs.find((j) => j.fixture.id === fixture.id && j.status !== 'failed');
-    if (dup) throw new Error('Bu maç zaten kuyrukta');
-    let mode = modeId;
-    if (!MODES.includes(mode)) {
-      mode = MODES[this.state.rotation % MODES.length];
-      this.state.rotation++;
-    }
+    const dup = this.state.jobs.find((j) => j.fixture.id === String(fixture.id) && j.status !== 'failed');
+    if (dup) throw new Error('Bu maç zaten listede');
     const pick = (t) => ({
       id: t.id, name: t.name, color: t.color, color2: t.color2, logo: t.logo, knownColors: !!t.knownColors, national: !!fixture.national,
     });
@@ -119,15 +115,9 @@ export class Automation {
         id: String(fixture.id), date: fixture.date, league: fixture.league, leagueEn: fixture.leagueEn || fixture.league,
         national: !!fixture.national, home: pick(fixture.home), away: pick(fixture.away),
       },
-      modeId: mode,
-      settings: {
-        duration: [30, 45, 60].includes(+settings?.duration) ? +settings.duration : 45,
-        influence: Math.max(0, Math.min(1, +settings?.influence || 0.4)),
-        homeAdvantage: settings?.homeAdvantage !== false,
-        lang: settings?.lang || 'en',
-        overrides: settings?.overrides && typeof settings.overrides === 'object' ? settings.overrides : {},
-      },
-      status: 'queued',
+      modeId: MODES.includes(modeId) ? modeId : 'random',
+      settings: null,
+      status: 'draft',
       attempts: 0,
       nextTryAt: 0,
       error: '',
@@ -137,14 +127,63 @@ export class Automation {
     this.state.jobs.push(job);
     this.state.jobs.sort((a, b) => a.fixture.date.localeCompare(b.fixture.date));
     await this.save();
+    return job;
+  }
+
+  // 2) Format seç (sadece taslakta)
+  async setMode(id, modeId) {
+    const j = this.getJob(id);
+    if (!j) throw new Error('Maç bulunamadı');
+    if (j.status !== 'draft') throw new Error('Başlatılmış maçın formatı değiştirilemez (önce seçilenlere geri al)');
+    j.modeId = MODES.includes(modeId) ? modeId : 'random';
+    await this.save();
+  }
+
+  // 3) Başlat: taslaklar o anki ayarlarla sıraya girer. "random" formatlar sırayla dağıtılır.
+  async startDrafts(settings, ids = null) {
+    const drafts = this.state.jobs.filter((j) => j.status === 'draft' && (!ids || ids.includes(j.id)));
+    if (!drafts.length) throw new Error('Başlatılacak seçili maç yok');
+    const snap = {
+      duration: [30, 45, 60].includes(+settings?.duration) ? +settings.duration : 45,
+      influence: Math.max(0, Math.min(1, Number.isFinite(+settings?.influence) ? +settings.influence : 0.4)),
+      homeAdvantage: settings?.homeAdvantage !== false,
+      lang: typeof settings?.lang === 'string' && settings.lang ? settings.lang : 'en',
+      overrides: settings?.overrides && typeof settings.overrides === 'object' ? settings.overrides : {},
+    };
+    for (const j of drafts) {
+      if (!MODES.includes(j.modeId)) {
+        j.modeId = MODES[this.state.rotation % MODES.length];
+        this.state.rotation++;
+      }
+      j.settings = { ...snap };
+      j.status = new Date(j.fixture.date).getTime() <= Date.now() ? 'missed' : 'queued';
+    }
+    await this.save();
     this.kick();
+    return drafts.length;
+  }
+
+  // Sıradaki (henüz üretilmeye başlamamış) maçı seçilenlere geri al
+  async unstart(id) {
+    const j = this.getJob(id);
+    if (!j) throw new Error('Maç bulunamadı');
+    if (j.status !== 'queued') throw new Error('Sadece sırada bekleyen maç geri alınabilir');
+    j.status = 'draft';
+    j.settings = null;
+    await this.save();
+  }
+
+  // Seç + hemen başlat (testler ve geriye uyumluluk için)
+  async addJob({ fixture, modeId, settings }) {
+    const job = await this.addDraft({ fixture, modeId });
+    await this.startDrafts(settings || {}, [job.id]);
     return job;
   }
 
   async removeJob(id) {
     const j = this.getJob(id);
     if (!j) return;
-    if (j.status === 'rendering' || j.status === 'uploading') throw new Error('İşlenirken silinemez, biraz bekle');
+    if (j.status === 'rendering' || j.status === 'uploading') throw new Error('Şu an işleniyor, bitince çıkarabilirsin');
     this.state.jobs = this.state.jobs.filter((x) => x.id !== id);
     await this.save();
   }
@@ -333,6 +372,7 @@ export class Automation {
       description: r.desc,
       tags: [job.fixture.home.name, job.fixture.away.name, job.fixture.leagueEn, 'football prediction', 'score prediction', 'shorts'],
       publishAt: plan.publishAt,
+      lang: job.settings?.lang || 'en',
     });
     job.youtube = { id: up.id, url: `https://youtube.com/shorts/${up.id}`, publishAt: plan.publishAt, uploadedAt: new Date().toISOString() };
     try {

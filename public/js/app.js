@@ -263,7 +263,9 @@ function renderFixtures() {
     ${ms.map((m) => {
       const k = fixtures.indexOf(m);
       const score = m.state === 'pre' ? fmtTime(m.date) : `${m.home.score ?? ''}-${m.away.score ?? ''}`;
-      const inQueue = queuedFixtures.has(String(m.id));
+      const job = fixtureJobs.get(String(m.id));
+      const isDraft = job?.status === 'draft';
+      const inQueue = !!job && !isDraft;
       const canAdd = m.state === 'pre' && new Date(m.date) > Date.now();
       return `<div class="fx-row">
         <button type="button" class="fx-item" data-k="${k}" title="${escapeHtml(m.venue)}">
@@ -272,8 +274,8 @@ function renderFixtures() {
           <span class="fx-vs">–</span>
           <span class="fx-team">${m.away.logo ? `<img src="${m.away.logo}" alt="" loading="lazy" />` : ''}${escapeHtml(m.away.name)}</span>
         </button>
-        <button type="button" class="fx-add${inQueue ? ' added' : ''}" data-k="${k}" ${inQueue || !canAdd ? 'disabled' : ''}
-          title="${inQueue ? 'Kuyrukta' : canAdd ? 'Otomatik kuyruğa ekle' : 'Başlamış maç eklenemez'}">${inQueue ? '✓' : '＋'}</button>
+        <button type="button" class="fx-add${isDraft ? ' picked' : inQueue ? ' added' : ''}" data-k="${k}" ${inQueue || (!canAdd && !isDraft) ? 'disabled' : ''}
+          title="${isDraft ? 'Seçildi — çıkarmak için tıkla' : inQueue ? 'Kuyrukta' : canAdd ? 'Seç' : 'Başlamış maç eklenemez'}">${isDraft || inQueue ? '✓' : '＋'}</button>
       </div>`;
     }).join('')}`).join('');
 }
@@ -600,8 +602,9 @@ async function api(method, url, body) {
   return j;
 }
 
-let queuedFixtures = new Set();
+let fixtureJobs = new Map(); // fixture.id -> job (başarısız olanlar hariç)
 let queueSig = '';
+let lastQueue = null;
 const STATUS = {
   queued: ['Sırada', 'st-wait'],
   rendering: ['Üretiliyor…', 'st-work'],
@@ -612,7 +615,17 @@ const STATUS = {
   failed: ['Hata', 'st-bad'],
   missed: ['Kaçırıldı', 'st-bad'],
 };
+const MODE_OPTS = [['random', '🎲 Rastgele'], ['ring', 'Dönen Halka'], ['plinko', 'Plinko Kalesi'], ['football', 'Mini Futbol'], ['race', 'Engelli Parkur']];
 const fmtWhen = (iso) => new Date(iso).toLocaleString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const modeName = (id) => MODE_OPTS.find(([k]) => k === id)?.[1] || id;
+
+// Kuyruğun kendi dil ve süre ayarı (paneldeki önizleme dilinden bağımsız; varsayılan English)
+const qLang = $('#qLang');
+qLang.innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+qLang.value = LANGS[storage.get('queueLang', 'en')] ? storage.get('queueLang', 'en') : 'en';
+qLang.addEventListener('change', () => storage.set('queueLang', qLang.value));
+$('#qDuration').value = String(storage.get('queueDuration', 45));
+$('#qDuration').addEventListener('change', () => storage.set('queueDuration', +$('#qDuration').value));
 
 function renderYoutubeBox(yt, settings) {
   const box = $('#qYoutube');
@@ -658,40 +671,60 @@ function renderYoutubeBox(yt, settings) {
   });
 }
 
-function renderQueue(q) {
-  queuedFixtures = new Set(q.jobs.filter((j) => j.status !== 'failed').map((j) => j.fixture.id));
-  $('#qUpload').value = q.settings.uploadMode;
-  if (document.activeElement !== $('#qLead')) $('#qLead').value = q.settings.leadMinutes;
-  const list = $('#qList');
-  if (!q.jobs.length) {
-    list.innerHTML = '<div class="muted">Kuyruk boş. Yukarıdaki fikstürde maçların yanındaki ＋ ile ekle.</div>';
-    return;
-  }
-  list.innerHTML = q.jobs.map((j) => {
+function jobRow(j, draft) {
+  const f = j.fixture;
+  const logo = (t) => (t.logo ? `<img src="${t.logo}" alt="" loading="lazy" />` : '');
+  const meta = [escapeHtml(f.league), fmtWhen(f.date)];
+  if (!draft) meta.push(escapeHtml(modeName(j.modeId)), escapeHtml(LANGS[j.settings?.lang]?.label || ''));
+  if (j.result) meta.push(`tahmin ${j.result.score[0]}-${j.result.score[1]}`);
+  let info = '';
+  let side = '';
+  let actions = '';
+  if (draft) {
+    side = `<select class="q-mode" title="Görsel format">${MODE_OPTS.map(([k, v]) => `<option value="${k}" ${k === j.modeId ? 'selected' : ''}>${v}</option>`).join('')}</select>`;
+    actions = '<button data-act="del" title="Seçimden çıkar">✕</button>';
+  } else {
     const [label, cls] = STATUS[j.status] || [j.status, ''];
-    const f = j.fixture;
     const yt = j.youtube;
     const pub = yt?.publishAt || j.plannedPublishAt;
-    let info = '';
-    if (j.status === 'scheduled') info = pub ? `Yayın: ${fmtWhen(pub)}` : 'Yayında';
+    if (j.status === 'scheduled') info = pub ? `Yayın: ${fmtWhen(pub)}${yt.thumbnail === false ? ' · kapak telefondan eklenmeli' : ''}` : 'Yayında';
     else if (j.status === 'ready' && pub) info = `Studio'da şu saate zamanla: <b>${fmtWhen(pub)}</b>`;
     else if (j.error) info = `<span class="err">${escapeHtml(j.error)}</span>`;
-    const score = j.result ? ` · tahmin ${j.result.score[0]}-${j.result.score[1]}` : '';
-    return `<div class="q-item" data-id="${j.id}">
-      <div class="q-main">
-        <div class="q-title">${escapeHtml(f.home.name)} – ${escapeHtml(f.away.name)}</div>
-        <div class="q-meta">${escapeHtml(f.league)} · ${fmtWhen(f.date)} · ${escapeHtml(getMode(j.modeId).meta.name)}${score}</div>
-        ${info ? `<div class="q-info">${info}</div>` : ''}
-      </div>
-      <span class="q-status ${cls}">${label}</span>
-      <div class="q-actions">
-        ${j.dir && j.result ? '<button data-act="open" title="Klasörü aç">📂</button>' : ''}
-        ${yt?.url ? `<a href="${yt.url}" target="_blank" rel="noopener" title="YouTube'da aç">▶</a>` : ''}
-        ${j.status === 'failed' ? '<button data-act="retry" title="Tekrar dene">↻</button>' : ''}
-        ${['rendering', 'uploading'].includes(j.status) ? '' : '<button data-act="del" title="Kuyruktan çıkar">✕</button>'}
-      </div>
-    </div>`;
-  }).join('');
+    side = `<span class="q-status ${cls}">${label}</span>`;
+    const busy = ['rendering', 'uploading'].includes(j.status);
+    actions = [
+      j.status === 'queued' ? '<button data-act="unstart" title="Seçilenlere geri al (format değiştirmek için)">↩</button>' : '',
+      j.dir && j.result ? '<button data-act="open" title="Klasörü aç">📂</button>' : '',
+      yt?.url ? `<a href="${yt.url}" target="_blank" rel="noopener" title="YouTube'da aç">▶</a>` : '',
+      j.status === 'failed' ? '<button data-act="retry" title="Tekrar dene">↻</button>' : '',
+      busy ? '' : '<button data-act="del" title="Listeden çıkar">✕</button>',
+    ].join('');
+  }
+  return `<div class="q-row${draft ? ' draft' : ''}" data-id="${j.id}">
+    <div class="q-main">
+      <div class="q-title">${logo(f.home)}${escapeHtml(f.home.name)} <span class="muted">–</span> ${logo(f.away)}${escapeHtml(f.away.name)}</div>
+      <div class="q-meta">${meta.join(' · ')}</div>
+      ${info ? `<div class="q-info">${info}</div>` : ''}
+    </div>
+    ${side}
+    <div class="q-actions">${actions}</div>
+  </div>`;
+}
+
+function renderQueue(q) {
+  lastQueue = q;
+  fixtureJobs = new Map(q.jobs.filter((j) => j.status !== 'failed').map((j) => [j.fixture.id, j]));
+  $('#qUpload').value = q.settings.uploadMode;
+  if (document.activeElement !== $('#qLead')) $('#qLead').value = q.settings.leadMinutes;
+  const drafts = q.jobs.filter((j) => j.status === 'draft');
+  const others = q.jobs.filter((j) => j.status !== 'draft');
+  $('#qDrafts').innerHTML = drafts.length
+    ? drafts.map((j) => jobRow(j, true)).join('')
+    : '<div class="muted">Henüz maç seçmedin. Yukarıdaki fikstürde maçların yanındaki ＋ ile ekle.</div>';
+  const start = $('#qStart');
+  start.disabled = !drafts.length;
+  start.textContent = drafts.length ? `▶ Seçilen ${drafts.length} maçı başlat` : '▶ Başlat';
+  $('#qList').innerHTML = others.length ? others.map((j) => jobRow(j, false)).join('') : '<div class="muted">Henüz başlatılmış maç yok.</div>';
 }
 
 async function loadQueue(force = false) {
@@ -699,48 +732,102 @@ async function loadQueue(force = false) {
     const q = await (await fetch('/api/queue')).json();
     const sig = JSON.stringify(q);
     if (!force && sig === queueSig) return;
-    const fixturesChanged = JSON.stringify([...queuedFixtures].sort()) !== JSON.stringify(q.jobs.filter((j) => j.status !== 'failed').map((j) => j.fixture.id).sort());
+    const before = JSON.stringify([...fixtureJobs].map(([k, j]) => k + j.status));
     queueSig = sig;
     renderQueue(q);
     renderYoutubeBox(q.youtube, q.settings);
-    if (fixturesChanged && fixtures.length) renderFixtures();
+    const after = JSON.stringify([...fixtureJobs].map(([k, j]) => k + j.status));
+    if (before !== after && fixtures.length) renderFixtures();
   } catch { /* sunucu kapalı olabilir */ }
 }
 
+// Fikstürde ＋ : seç / tekrar tıklayınca seçimden çıkar
 fxList.addEventListener('click', async (e) => {
   const b = e.target.closest('.fx-add');
   if (!b || b.disabled) return;
   e.stopPropagation();
   const m = fixtures[+b.dataset.k];
-  const lang = langSel.value;
+  const existing = fixtureJobs.get(String(m.id));
   b.disabled = true;
   try {
-    await api('POST', '/api/queue', {
-      fixture: m,
-      modeId: $('#mode').value,
-      settings: { duration: +$('#duration').value, influence: +influence.value / 100, homeAdvantage: $('#home').checked, lang, overrides: overridesFor(lang) },
-    });
-    setStatus(`Kuyruğa eklendi: ${m.home.name} - ${m.away.name}`);
-    loadQueue(true);
+    if (existing?.status === 'draft') {
+      await api('DELETE', `/api/queue/${existing.id}`);
+      setStatus(`Seçimden çıkarıldı: ${m.home.name} - ${m.away.name}`);
+    } else {
+      await api('POST', '/api/queue', { fixture: m, modeId: $('#qAllMode').value || 'random' });
+      setStatus(`Seçildi: ${m.home.name} - ${m.away.name} — format seçip “Başlat”a bas`);
+    }
+    await loadQueue(true);
+    renderFixtures();
   } catch (err) {
     b.disabled = false;
-    setStatus('Eklenemedi: ' + err.message);
+    setStatus('Hata: ' + err.message);
   }
 });
 
-$('#qList').addEventListener('click', async (e) => {
-  const b = e.target.closest('button[data-act]');
-  if (!b) return;
-  const id = b.closest('.q-item').dataset.id;
+$('#qDrafts').addEventListener('change', async (e) => {
+  const sel = e.target.closest('.q-mode');
+  if (!sel) return;
+  const id = sel.closest('.q-row').dataset.id;
   try {
-    if (b.dataset.act === 'del') await api('DELETE', `/api/queue/${id}`);
-    if (b.dataset.act === 'retry') await api('POST', `/api/queue/${id}/retry`);
-    if (b.dataset.act === 'open') await api('POST', `/api/queue/${id}/open`);
+    await api('POST', `/api/queue/${id}/mode`, { modeId: sel.value });
+    $('#qAllMode').value = '';
     loadQueue(true);
   } catch (err) {
     setStatus('Hata: ' + err.message);
   }
 });
+
+$('#qAllMode').addEventListener('change', async () => {
+  const v = $('#qAllMode').value;
+  if (!v || !lastQueue) return;
+  const drafts = lastQueue.jobs.filter((j) => j.status === 'draft');
+  try {
+    await Promise.all(drafts.map((j) => api('POST', `/api/queue/${j.id}/mode`, { modeId: v })));
+    loadQueue(true);
+  } catch (err) {
+    setStatus('Hata: ' + err.message);
+  }
+});
+
+$('#qStart').addEventListener('click', async () => {
+  const lang = qLang.value;
+  const btn = $('#qStart');
+  btn.disabled = true;
+  try {
+    const r = await api('POST', '/api/queue/start', {
+      settings: { lang, duration: +$('#qDuration').value, influence: +influence.value / 100, homeAdvantage: $('#home').checked, overrides: overridesFor(lang) },
+    });
+    setStatus(`${r.started} maç başlatıldı (${LANGS[lang].label}). Kuyruk arka planda işleniyor.`);
+    loadQueue(true);
+  } catch (err) {
+    btn.disabled = false;
+    setStatus('Hata: ' + err.message);
+  }
+});
+
+async function onRowAction(e) {
+  const b = e.target.closest('button[data-act]');
+  if (!b) return;
+  const row = b.closest('.q-row');
+  const id = row.dataset.id;
+  const job = lastQueue?.jobs.find((j) => j.id === id);
+  try {
+    if (b.dataset.act === 'del') {
+      if (job?.status === 'scheduled' && !confirm('Maç listeden çıkarılacak. YouTube’a yüklenmiş video SİLİNMEZ (gerekirse Studio’dan sil). Devam?')) return;
+      await api('DELETE', `/api/queue/${id}`);
+    }
+    if (b.dataset.act === 'unstart') await api('POST', `/api/queue/${id}/unstart`);
+    if (b.dataset.act === 'retry') await api('POST', `/api/queue/${id}/retry`);
+    if (b.dataset.act === 'open') await api('POST', `/api/queue/${id}/open`);
+    await loadQueue(true);
+    renderFixtures();
+  } catch (err) {
+    setStatus('Hata: ' + err.message);
+  }
+}
+$('#qList').addEventListener('click', onRowAction);
+$('#qDrafts').addEventListener('click', onRowAction);
 const saveQueueSettings = () => api('POST', '/api/queue/settings', { uploadMode: $('#qUpload').value, leadMinutes: +$('#qLead').value }).then(() => loadQueue(true)).catch((e) => setStatus('Hata: ' + e.message));
 $('#qUpload').addEventListener('change', saveQueueSettings);
 $('#qLead').addEventListener('change', saveQueueSettings);

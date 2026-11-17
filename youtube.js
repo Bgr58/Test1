@@ -164,12 +164,13 @@ export class YouTube {
    * Videoyu yükler. publishAt verilirse "özel + zamanlanmış" yüklenir ve YouTube o saatte
    * kendisi yayınlar (bilgisayarın açık olması gerekmez). Verilmezse hemen herkese açık olur.
    */
-  async uploadVideo({ file, title, description, tags = [], publishAt = null, categoryId = '17' }) {
+  async uploadVideo({ file, title, description, tags = [], publishAt = null, categoryId = '17', lang = 'en' }) {
     const at = await this.accessToken();
     const data = await readFile(file);
     const type = file.endsWith('.webm') ? 'video/webm' : 'video/mp4';
     const meta = {
-      snippet: { title: cut(title, 100), description: cut(description, 4900), tags: fitTags(tags), categoryId },
+      // defaultLanguage: YouTube metnin dilini doğru bilsin (yanlış otomatik çeviriyi önler)
+      snippet: { title: cut(title, 100), description: cut(description, 4900), tags: fitTags(tags), categoryId, defaultLanguage: lang, defaultAudioLanguage: lang },
       status: publishAt
         ? { privacyStatus: 'private', publishAt: new Date(publishAt).toISOString(), selfDeclaredMadeForKids: false }
         : { privacyStatus: 'public', selfDeclaredMadeForKids: false },

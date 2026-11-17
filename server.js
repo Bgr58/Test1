@@ -105,18 +105,31 @@ async function handleApi(req, res, url, q) {
   // ---- kuyruk
   if (p === '/api/queue' && m === 'GET') return send(res, 200, await queueState());
   if (p === '/api/queue' && m === 'POST') {
-    const job = await automation.addJob(await readJson(req));
+    const job = await automation.addDraft(await readJson(req));
     return send(res, 200, { job });
+  }
+  if (p === '/api/queue/start' && m === 'POST') {
+    const b = await readJson(req);
+    const n = await automation.startDrafts(b.settings, Array.isArray(b.ids) ? b.ids : null);
+    return send(res, 200, { started: n });
   }
   if (p === '/api/queue/settings' && m === 'POST') {
     await automation.updateSettings(await readJson(req));
     return send(res, 200, await queueState());
   }
-  let mm = p.match(/^\/api\/queue\/([a-f0-9]+)(?:\/(retry|open))?$/);
+  let mm = p.match(/^\/api\/queue\/([a-f0-9]+)(?:\/(retry|open|mode|unstart))?$/);
   if (mm) {
     const [, id, action] = mm;
     if (m === 'DELETE' && !action) {
       await automation.removeJob(id);
+      return send(res, 200, { ok: true });
+    }
+    if (m === 'POST' && action === 'mode') {
+      await automation.setMode(id, (await readJson(req)).modeId);
+      return send(res, 200, { ok: true });
+    }
+    if (m === 'POST' && action === 'unstart') {
+      await automation.unstart(id);
       return send(res, 200, { ok: true });
     }
     if (m === 'POST' && action === 'retry') {

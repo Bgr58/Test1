@@ -233,10 +233,21 @@ label.inline select { width: auto; }
 .btn-link { background: var(--primary); color: #fff; text-decoration: none; padding: 8px 12px; border-radius: 10px; font-weight: 700; }
 .warn { background: #3a2a0c; border: 1px solid #7a5a12; color: #ffd98a; border-radius: 10px; padding: 8px 10px; margin: 6px 0 0; font-size: 12.5px; }
 .q-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
-.q-item {
+.q-row {
   display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center;
   background: #0c1224; border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px;
 }
+.q-row.draft { border-style: dashed; border-color: #4a5a8a; }
+.q-mode { width: auto; max-width: 170px; padding: 6px 8px; }
+.q-title img { width: 20px; height: 20px; object-fit: contain; background: #fff; border-radius: 50%; padding: 1px; vertical-align: -4px; margin-right: 5px; }
+.q-step { display: flex; align-items: center; gap: 8px; font-weight: 800; margin-top: 4px; }
+.q-num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #111; font-size: 12px; }
+.q-startbar { background: #0f1630; border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.q-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.q-grid input[type=number] { width: 80px; }
+#qStart { align-self: flex-start; padding: 12px 18px; font-size: 15px; }
+.fx-add.picked { color: #111; background: var(--accent); border-color: var(--accent); }
+.queue h2 { margin: 0; font-size: 17px; }
 .q-title { font-weight: 700; }
 .q-meta, .q-info { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 .q-main { min-width: 0; }
@@ -248,4 +259,4 @@ label.inline select { width: auto; }
 .st-bad { background: #3a1620; color: #ff8a9a; }
 .q-actions { display: flex; gap: 4px; }
 .q-actions button, .q-actions a { padding: 6px 9px; font-size: 13px; text-decoration: none; color: var(--text); background: #1b2440; border: 1px solid var(--line); border-radius: 8px; }
-@media (max-width: 900px) { .q-item { grid-template-columns: 1fr auto; } .q-actions { grid-column: span 2; } }
+@media (max-width: 900px) { .q-row { grid-template-columns: 1fr auto; } .q-actions { grid-column: span 2; } }

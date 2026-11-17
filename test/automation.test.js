@@ -32,7 +32,7 @@ test('kuyruk: formatlar sırayla dağıtılır, aynı maç iki kez eklenmez, kal
     for (let i = 0; i < 5; i++) modes.push((await a.addJob({ fixture: fixture('f' + i, 24 + i), modeId: 'random', settings: { duration: 30 } })).modeId);
     assert.deepEqual(modes, ['ring', 'plinko', 'football', 'race', 'ring']);
     assert.equal((await a.addJob({ fixture: fixture('x', 30), modeId: 'race', settings: {} })).modeId, 'race');
-    await assert.rejects(a.addJob({ fixture: fixture('f0', 24), modeId: 'random', settings: {} }), /zaten kuyrukta/);
+    await assert.rejects(a.addJob({ fixture: fixture('f0', 24), modeId: 'random', settings: {} }), /zaten listede/);
     const b = new Automation({ root, port: 0, youtube: null });
     await b.load();
     assert.equal(b.state.jobs.length, 6);
@@ -143,6 +143,41 @@ test('YouTube: kanal adı ilk bağlantıda alınamazsa sonradan alınır; hazır
     assert.equal(job.error, '');
   } finally {
     mock.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('seç → format → başlat akışı: taslak üretilmez, başlatınca ayarlar alınır, geri alınabilir, çıkarılabilir', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mt3-'));
+  try {
+    const a = new Automation({ root, port: 0, youtube: null, log: { log() {}, warn() {}, error() {} } });
+    await a.load();
+    let kicked = 0;
+    a.kick = () => kicked++;
+    const d1 = await a.addDraft({ fixture: fixture('d1', 20) });
+    const d2 = await a.addDraft({ fixture: fixture('d2', 22) });
+    const d3 = await a.addDraft({ fixture: fixture('d3', 24) });
+    assert.equal(d1.status, 'draft');
+    assert.equal(kicked, 0, 'taslak eklemek üretimi tetiklememeli');
+    // taslak varken worker hiçbir şey yapmamalı
+    a.render = async () => assert.fail('taslak üretilmemeli');
+    await a.tick();
+    await a.setMode(d2.id, 'football');
+    await a.removeJob(d3.id);
+    assert.equal(a.state.jobs.length, 2);
+    const n = await a.startDrafts({ lang: 'en', duration: 30, influence: 0.5 });
+    assert.equal(n, 2);
+    assert.equal(d1.status, 'queued');
+    assert.equal(d1.modeId, 'ring'); // random → sıradaki format
+    assert.equal(d2.modeId, 'football'); // elle seçilen korunur
+    assert.deepEqual([d1.settings.lang, d1.settings.duration, d1.settings.influence], ['en', 30, 0.5]);
+    await assert.rejects(a.setMode(d1.id, 'race'), /değiştirilemez/);
+    await a.unstart(d1.id);
+    assert.equal(d1.status, 'draft');
+    await a.setMode(d1.id, 'race');
+    assert.equal(d1.modeId, 'race');
+    await assert.rejects(a.startDrafts({}, ['yok']), /yok/);
+  } finally {
     await rm(root, { recursive: true, force: true });
   }
 });

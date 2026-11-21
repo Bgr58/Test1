@@ -73,7 +73,7 @@ test('maç fazları sırayla ilerler ve biter', () => {
 
 test('dil paketleri: her dilde tüm metinler var, yer tutucular korunuyor', async () => {
   const { LANGS, KEYS, makeTexts } = await import('../public/js/i18n.js');
-  const ph = (s) => (String(s).match(/\{\w+\}/g) || []).sort().join();
+  const ph = (s) => [...new Set(String(s).match(/\{\w+\}/g) || [])].sort().join();
   for (const [code, pack] of Object.entries(LANGS)) {
     for (const { key } of KEYS) {
       assert.ok(pack.strings[key], `${code}.${key} eksik`);
@@ -95,4 +95,24 @@ test('eloratings ayrıştırma ve milli takım eşleştirme', async () => {
   assert.equal(matchNational('Türkiye', list)?.elo, 1750);
   assert.equal(matchNational('Korea Republic', list)?.elo, 1700);
   assert.equal(matchNational('Spain', list)?.elo, 2258);
+});
+
+test('alt başlık ligin ülke saatiyle; açıklamada anket + lig etiketi var, skor yok; başlık maça göre çeşitlenir', async () => {
+  const { fixtureSubtitle, shortsText, tzLabel } = await import('../public/js/produce.js');
+  const { makeTexts } = await import('../public/js/i18n.js');
+  const base = { date: '2026-11-22T13:00:00Z', league: 'LaLiga', leagueEn: 'LaLiga' };
+  assert.equal(fixtureSubtitle({ ...base, tz: 'Europe/Madrid' }, 'en'), 'LaLiga • Sun 22 Nov, 14:00 CET');
+  assert.equal(fixtureSubtitle({ ...base, tz: 'Europe/London', leagueEn: 'Premier League' }, 'en'), 'Premier League • Sun 22 Nov, 13:00 GMT');
+  assert.equal(fixtureSubtitle({ ...base, tz: 'Europe/Istanbul', leagueEn: 'Süper Lig' }, 'en'), 'Süper Lig • Sun 22 Nov, 16:00 TRT');
+  assert.equal(tzLabel(new Date('2026-07-10T13:00Z'), 'Europe/London'), 'BST');
+  const T = makeTexts('en');
+  const mk = (A, B) => shortsText({ A: { name: A }, B: { name: B }, subtitle: 'LaLiga • Sun 22 Nov, 14:00 CET', leagueTag: '#LaLiga' }, 'ring', T);
+  const r = mk('Barcelona', 'Villarreal');
+  assert.match(r.desc, /Comment 1 for Barcelona, X for a draw, 2 for Villarreal/);
+  assert.match(r.desc, /⏰ LaLiga • Sun 22 Nov, 14:00 CET/);
+  assert.match(r.desc, /#barcelona #villarreal #LaLiga #football/);
+  assert.ok(!/\{\w+\}/.test(r.title + r.desc), 'doldurulmamış yer tutucu kalmamalı');
+  assert.equal(r.title, mk('Barcelona', 'Villarreal').title, 'aynı maç → aynı başlık');
+  const titles = new Set(['Real Madrid|Getafe', 'Arsenal|Chelsea', 'Inter|Milan', 'Ajax|PSV', 'Benfica|Porto', 'Lyon|Nice'].map((x) => mk(...x.split('|')).title.replace(/^.*?(Prediction|Can|who takes|Who wins).*$/, '$1')));
+  assert.ok(titles.size >= 2, 'farklı maçlarda farklı başlık çeşitleri çıkmalı');
 });

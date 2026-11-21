@@ -11,22 +11,22 @@ const TIMEOUT = 12_000;
 
 // group: arayüzde gruplama · base: puan durumundan Elo tahmini için lig taban puanı
 export const COMPETITIONS = [
-  { id: 'tur.1', name: 'Süper Lig', nameEn: 'Süper Lig', group: 'Türkiye', national: false, base: 1590 },
-  { id: 'eng.1', name: 'Premier League', nameEn: 'Premier League', group: 'Avrupa ligleri', national: false, base: 1810 },
-  { id: 'esp.1', name: 'LaLiga', nameEn: 'LaLiga', group: 'Avrupa ligleri', national: false, base: 1760 },
-  { id: 'ita.1', name: 'Serie A', nameEn: 'Serie A', group: 'Avrupa ligleri', national: false, base: 1745 },
-  { id: 'ger.1', name: 'Bundesliga', nameEn: 'Bundesliga', group: 'Avrupa ligleri', national: false, base: 1740 },
-  { id: 'fra.1', name: 'Ligue 1', nameEn: 'Ligue 1', group: 'Avrupa ligleri', national: false, base: 1700 },
-  { id: 'por.1', name: 'Liga Portugal', nameEn: 'Liga Portugal', group: 'Avrupa ligleri', national: false, base: 1650 },
-  { id: 'uefa.champions', name: 'Şampiyonlar Ligi', nameEn: 'Champions League', group: 'UEFA kupaları', national: false },
-  { id: 'uefa.europa', name: 'Avrupa Ligi', nameEn: 'Europa League', group: 'UEFA kupaları', national: false },
-  { id: 'uefa.europa.conf', name: 'Konferans Ligi', nameEn: 'Conference League', group: 'UEFA kupaları', national: false },
-  { id: 'fifa.world', name: 'Dünya Kupası', nameEn: 'World Cup', group: 'Milli takımlar', national: true },
-  { id: 'fifa.worldq.uefa', name: 'Dünya Kupası Elemeleri (Avrupa)', nameEn: 'World Cup Qualifiers', group: 'Milli takımlar', national: true },
-  { id: 'uefa.nations', name: 'UEFA Uluslar Ligi', nameEn: 'Nations League', group: 'Milli takımlar', national: true },
-  { id: 'uefa.euro', name: 'EURO', nameEn: 'EURO', group: 'Milli takımlar', national: true },
-  { id: 'uefa.euroq', name: 'EURO Elemeleri', nameEn: 'EURO Qualifiers', group: 'Milli takımlar', national: true },
-  { id: 'fifa.friendly', name: 'Hazırlık Maçları', nameEn: 'International Friendly', group: 'Milli takımlar', national: true },
+  { id: 'tur.1', name: 'Süper Lig', nameEn: 'Süper Lig', tz: 'Europe/Istanbul', tag: '#SuperLig', group: 'Türkiye', national: false, base: 1590 },
+  { id: 'eng.1', name: 'Premier League', nameEn: 'Premier League', tz: 'Europe/London', tag: '#PremierLeague', group: 'Avrupa ligleri', national: false, base: 1810 },
+  { id: 'esp.1', name: 'LaLiga', nameEn: 'LaLiga', tz: 'Europe/Madrid', tag: '#LaLiga', group: 'Avrupa ligleri', national: false, base: 1760 },
+  { id: 'ita.1', name: 'Serie A', nameEn: 'Serie A', tz: 'Europe/Rome', tag: '#SerieA', group: 'Avrupa ligleri', national: false, base: 1745 },
+  { id: 'ger.1', name: 'Bundesliga', nameEn: 'Bundesliga', tz: 'Europe/Berlin', tag: '#Bundesliga', group: 'Avrupa ligleri', national: false, base: 1740 },
+  { id: 'fra.1', name: 'Ligue 1', nameEn: 'Ligue 1', tz: 'Europe/Paris', tag: '#Ligue1', group: 'Avrupa ligleri', national: false, base: 1700 },
+  { id: 'por.1', name: 'Liga Portugal', nameEn: 'Liga Portugal', tz: 'Europe/Lisbon', tag: '#LigaPortugal', group: 'Avrupa ligleri', national: false, base: 1650 },
+  { id: 'uefa.champions', name: 'Şampiyonlar Ligi', nameEn: 'Champions League', tag: '#ChampionsLeague #UCL', group: 'UEFA kupaları', national: false },
+  { id: 'uefa.europa', name: 'Avrupa Ligi', nameEn: 'Europa League', tag: '#EuropaLeague #UEL', group: 'UEFA kupaları', national: false },
+  { id: 'uefa.europa.conf', name: 'Konferans Ligi', nameEn: 'Conference League', tag: '#ConferenceLeague #UECL', group: 'UEFA kupaları', national: false },
+  { id: 'fifa.world', name: 'Dünya Kupası', nameEn: 'World Cup', tag: '#WorldCup', group: 'Milli takımlar', national: true },
+  { id: 'fifa.worldq.uefa', name: 'Dünya Kupası Elemeleri (Avrupa)', nameEn: 'World Cup Qualifiers', tag: '#WorldCupQualifiers', group: 'Milli takımlar', national: true },
+  { id: 'uefa.nations', name: 'UEFA Uluslar Ligi', nameEn: 'Nations League', tag: '#NationsLeague', group: 'Milli takımlar', national: true },
+  { id: 'uefa.euro', name: 'EURO', nameEn: 'EURO', tag: '#EURO', group: 'Milli takımlar', national: true },
+  { id: 'uefa.euroq', name: 'EURO Elemeleri', nameEn: 'EURO Qualifiers', tag: '#EUROQualifiers', group: 'Milli takımlar', national: true },
+  { id: 'fifa.friendly', name: 'Hazırlık Maçları', nameEn: 'International Friendly', tag: '#InternationalFriendly', group: 'Milli takımlar', national: true },
 ];
 const COMP = Object.fromEntries(COMPETITIONS.map((c) => [c.id, c]));
 
@@ -132,6 +132,38 @@ const CLUB_COLORS = {
   ajax: ['#d2122e', '#ffffff'], ajaxamsterdam: ['#d2122e', '#ffffff'], psveindhoven: ['#ed1c24', '#ffffff'], feyenoord: ['#e3001b', '#ffffff'],
   celtic: ['#018749', '#ffffff'], rangers: ['#1b458f', '#ffffff'], olympiacos: ['#e2001a', '#ffffff'],
 };
+
+// Milli maçlarda ev sahibi ülkenin saati (listede yoksa Orta Avrupa saati)
+const NATIONAL_TZ = {
+  turkey: 'Europe/Istanbul', turkiye: 'Europe/Istanbul', england: 'Europe/London', scotland: 'Europe/London', wales: 'Europe/London',
+  northernireland: 'Europe/London', ireland: 'Europe/Dublin', republicofireland: 'Europe/Dublin', portugal: 'Europe/Lisbon',
+  iceland: 'Atlantic/Reykjavik', faroeislands: 'Atlantic/Faroe', greece: 'Europe/Athens', cyprus: 'Asia/Nicosia', romania: 'Europe/Bucharest',
+  bulgaria: 'Europe/Sofia', ukraine: 'Europe/Kyiv', finland: 'Europe/Helsinki', estonia: 'Europe/Tallinn', latvia: 'Europe/Riga',
+  lithuania: 'Europe/Vilnius', moldova: 'Europe/Chisinau', georgia: 'Asia/Tbilisi', armenia: 'Asia/Yerevan', azerbaijan: 'Asia/Baku',
+  kazakhstan: 'Asia/Almaty', israel: 'Asia/Jerusalem', belarus: 'Europe/Minsk', russia: 'Europe/Moscow',
+  brazil: 'America/Sao_Paulo', argentina: 'America/Argentina/Buenos_Aires', uruguay: 'America/Montevideo', chile: 'America/Santiago',
+  colombia: 'America/Bogota', peru: 'America/Lima', ecuador: 'America/Guayaquil', paraguay: 'America/Asuncion', bolivia: 'America/La_Paz',
+  venezuela: 'America/Caracas', mexico: 'America/Mexico_City', unitedstates: 'America/New_York', usa: 'America/New_York', canada: 'America/Toronto',
+  costarica: 'America/Costa_Rica', japan: 'Asia/Tokyo', southkorea: 'Asia/Seoul', korearepublic: 'Asia/Seoul', australia: 'Australia/Sydney',
+  saudiarabia: 'Asia/Riyadh', qatar: 'Asia/Qatar', iran: 'Asia/Tehran', egypt: 'Africa/Cairo', morocco: 'Africa/Casablanca',
+  algeria: 'Africa/Algiers', tunisia: 'Africa/Tunis', nigeria: 'Africa/Lagos', ghana: 'Africa/Accra', senegal: 'Africa/Dakar',
+  cameroon: 'Africa/Douala', ivorycoast: 'Africa/Abidjan', southafrica: 'Africa/Johannesburg',
+};
+const CET = 'Europe/Paris';
+
+// Maç saatinin hangi saat diliminde yazılacağı: lig maçında o ülkenin, Avrupa kupasında ev sahibi takımın
+// ligi biliniyorsa o ülkenin, milli maçta ev sahibi ülkenin saati; bilinmiyorsa Orta Avrupa saati (CET).
+async function matchTimeZone(compId, home) {
+  const c = COMP[compId];
+  if (c?.tz) return c.tz;
+  if (c?.national) return NATIONAL_TZ[normalizeName(home?.name)] || CET;
+  try {
+    const t = await getTeam(home?.id, false);
+    const lg = t?.comps.find((x) => COMP[x]?.tz);
+    if (lg) return COMP[lg].tz;
+  } catch { /* dizin yoksa CET */ }
+  return CET;
+}
 
 const hex = (c) => (/^[0-9a-f]{6}$/i.test(c || '') ? '#' + c.toLowerCase() : null);
 export const imgUrl = (u) => (u ? `/api/img?u=${encodeURIComponent(u)}` : '');
@@ -242,7 +274,7 @@ export async function fixtures(date, comps = COMPETITIONS.map((c) => c.id)) {
           const side = (ha) => comp.competitors?.find((x) => x.homeAway === ha);
           const team = (x) => (x ? { ...mapTeam(x.team, c), score: x.score ?? null } : null);
           return {
-            id: e.id, date: e.date, league: COMP[c].name, leagueEn: COMP[c].nameEn, leagueId: c, national: COMP[c].national,
+            id: e.id, date: e.date, league: COMP[c].name, leagueEn: COMP[c].nameEn, leagueId: c, national: COMP[c].national, leagueTag: COMP[c].tag,
             status: e.status?.type?.description || '', state: e.status?.type?.state || '',
             venue: comp.venue?.fullName || '', home: team(side('home')), away: team(side('away')),
           };
@@ -254,7 +286,9 @@ export async function fixtures(date, comps = COMPETITIONS.map((c) => c.id)) {
   const errors = [];
   results.forEach((r, i) => (r.status === 'fulfilled' ? out.push(...r.value) : errors.push(`${ids[i]}: ${r.reason?.message}`)));
   out.sort((a, b) => a.date.localeCompare(b.date) || a.league.localeCompare(b.league));
-  return { matches: out.filter((m) => m.home && m.away), errors };
+  const matches = out.filter((m) => m.home && m.away);
+  await Promise.all(matches.map(async (m) => (m.tz = await matchTimeZone(m.leagueId, m.home))));
+  return { matches, errors };
 }
 
 // ------------------------------------------------------------- güç (Elo)

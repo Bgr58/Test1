@@ -114,6 +114,7 @@ export class Automation {
       fixture: {
         id: String(fixture.id), date: fixture.date, league: fixture.league, leagueEn: fixture.leagueEn || fixture.league,
         national: !!fixture.national, home: pick(fixture.home), away: pick(fixture.away),
+        tz: typeof fixture.tz === 'string' ? fixture.tz : null, leagueTag: typeof fixture.leagueTag === 'string' ? fixture.leagueTag : '',
       },
       modeId: MODES.includes(modeId) ? modeId : 'random',
       luck: null,

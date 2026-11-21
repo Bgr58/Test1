@@ -7,7 +7,7 @@ import { buildTeamAssets, loadImage, extractColors } from './assets.js';
 import { computeStrength } from './strength.js';
 import { randomSeed } from './rng.js';
 import { makeTexts } from './i18n.js';
-import { weakColors, fixtureSubtitle, shortsText, makeThumbnail } from './produce.js';
+import { weakColors, fixtureSubtitle, shortsText, makeThumbnail, ensureFonts } from './produce.js';
 
 const jobId = new URLSearchParams(location.search).get('job');
 const H = { 'X-Requested-With': 'mac-tahmin' };
@@ -42,7 +42,7 @@ async function run() {
   const strength = computeStrength({ eloA: A.elo, eloB: B.elo, homeAdvantage: st.homeAdvantage, influence: st.influence });
   const texts = makeTexts(st.lang, st.overrides);
   const subtitle = fixtureSubtitle(fixture, st.lang);
-  await document.fonts.ready;
+  await ensureFonts();
 
   const assets = { teams: [buildTeamAssets(A), buildTeamAssets(B)], texts };
   const sound = new Sound();
@@ -70,7 +70,7 @@ async function run() {
   sound.ambientStop();
   await new Promise((r) => setTimeout(r, 300));
   const video = await rec.stop();
-  const s = { A, B, subtitle };
+  const s = { A, B, subtitle, leagueTag: fixture.leagueTag || '' };
   const thumb = await makeThumbnail(s, texts);
   const { title, desc } = shortsText(s, modeId, texts);
   await upload(`video.${rec.ext}`, video);

@@ -8,7 +8,7 @@ import { buildTeamAssets, loadImage, extractColors } from './assets.js';
 import { computeStrength, matchClub, fallbackList } from './strength.js';
 import { randomSeed } from './rng.js';
 import { LANGS, KEYS, makeTexts } from './i18n.js';
-import { slug, hashStr, weakColors, fixtureSubtitle, shortsText, makeThumbnail } from './produce.js';
+import { slug, hashStr, weakColors, fixtureSubtitle, shortsText, makeThumbnail, ensureFonts } from './produce.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const canvas = $('#canvas');
@@ -452,7 +452,7 @@ async function ensureSound(s) {
 
 async function playOnce({ record, modeId: forcedMode }) {
   const s = settings();
-  await document.fonts.ready;
+  await ensureFonts();
   const snd = await ensureSound(s);
   const sel = $('#mode').value;
   const modeId = forcedMode || (sel === 'random' ? nextRandomMode() : sel);
@@ -518,7 +518,9 @@ async function addResult({ blob, ext, match, s, seed, modeId, texts }) {
   // Dosya adında skor YOK: YouTube başlığı varsayılan olarak dosya adından doldurur, skor sızmasın.
   const base = `${slug(s.A.name)}_vs_${slug(s.B.name)}_prediction_${modeId}_${seed}`;
   const file = `${base}.${ext}`;
-  const { title, desc } = shortsText(s, modeId, texts);
+  // takvimden seçilen maçın alt başlığı değiştirilmediyse lig etiketini de ekle
+  const leagueTag = lastFixture && s.subtitle === lastAutoSubtitle ? lastFixture.leagueTag || '' : '';
+  const { title, desc } = shortsText({ ...s, leagueTag }, modeId, texts);
   const thumb = await makeThumbnail(s, texts);
   const thumbUrl = URL.createObjectURL(thumb);
   const div = document.createElement('div');
@@ -591,7 +593,7 @@ $('#stop').addEventListener('click', () => running?.stop());
 if (pickMime() === null) setStatus('Bu tarayıcı video kaydını desteklemiyor. Chrome veya Edge kullan.');
 else if (!pickMime().includes('mp4')) setStatus('Not: Bu tarayıcı MP4 kaydedemiyor, WebM üretilecek (YouTube kabul eder).');
 
-document.fonts.ready.then(drawPoster);
+ensureFonts().then(drawPoster);
 drawPoster();
 // ---------------------------------------------------------------- otomatik kuyruk + YouTube
 const H_POST = { 'X-Requested-With': 'mac-tahmin', 'Content-Type': 'application/json' };

@@ -131,6 +131,20 @@ Notlar:
 - Kimlik bilgileri sadece bu bilgisayarda, `data/` klasöründe saklanır. Bu klasörü kimseyle paylaşma.
 - Shorts kapağı API ile ayarlanamayabilir (YouTube reddederse panelde yazar). O durumda kapağı telefondaki YouTube uygulamasından ekle.
 
+## 📈 Etkileşim için yapılanlar
+
+- **İlk kare:** Video ilk kareden itibaren logolar, VS ve büyük "WHO WINS?" ile açılır. Shorts'ta izleyici ilk saniyede karar verir.
+- **Açıklama:** İlk satır soru ("Who wins …?"), ardından maç saati, **1 / X / 2 yorum anketi**
+  ("Comment 1 for …, X for a draw, 2 for …"), takip çağrısı, takım + lig etiketleri (#ChampionsLeague, #PremierLeague …).
+- **Başlık çeşitleri:** Her dilde 4 başlık var; maça göre biri seçilir, her video aynı başlıkla çıkmaz.
+  Metin düzenleyicide "YouTube başlığı" kutusuna her satıra bir çeşit yazabilirsin.
+- **Maç saati ligin ülkesinin saatiyle** yazılır: Süper Lig TRT, Premier League GMT/BST, LaLiga/Serie A/Bundesliga/Ligue 1 CET,
+  Liga Portugal WET. Avrupa kupalarında ev sahibi takımın ülkesi, milli maçlarda ev sahibi ülke esas alınır; bilinmiyorsa CET.
+- **Skor hiçbir yerde yazmaz** (kapak, başlık, açıklama, dosya adı). İzleyici skoru görmek için videoyu sonuna kadar izlemeli.
+
+Elle yapman önerilenler: Videoyu yükledikten sonra ilk yorumu sen yaz ve sabitle (ör. "1, X or 2? 👇").
+İlk saatte gelen yorumlara cevap ver. Maçtan sonra "Did we get it right?" diye bir topluluk gönderisi ya da kısa bir video paylaş.
+
 ## Oyun formatları
 
 | Mod | Nasıl gol olur? |

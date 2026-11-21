@@ -170,27 +170,56 @@ function drawBanner(ctx, fx, T) {
 }
 
 function drawIntro(ctx, match, assets, opts) {
+  // İlk kare çok önemli (Shorts'ta izleyici ilk saniyede karar verir): logolar, VS ve soru
+  // 0. kareden itibaren görünür; sadece hafif "pop" animasyonu var.
   const t = match.phaseT;
   const [A, B] = assets.teams;
-  ctx.fillStyle = `rgba(5,7,15,${0.82 - ease((t - INTRO + 0.5) / 0.5) * 0.82})`;
+  const T = opts.texts;
+  ctx.fillStyle = `rgba(5,7,15,${0.7 - ease((t - INTRO + 0.5) / 0.5) * 0.7})`;
   ctx.fillRect(0, 0, W, H);
   const fade = 1 - ease((t - INTRO + 0.45) / 0.45);
   ctx.save();
   ctx.globalAlpha = fade;
-  const ay = 900;
-  const byy = 1250;
-  const ax = -300 + (300 + 260) * easeBack(t / 0.7);
-  const bx = W + 300 - (300 + 260) * easeBack((t - 0.15) / 0.7);
-  drawLogo(ctx, A, ax, ay, 150);
-  drawLogo(ctx, B, bx, byy, 150);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const vs = easeBack((t - 0.5) / 0.4);
+
+  // büyük soru (kapakla aynı): "WHO WINS?"
+  const q = T.t('thumbTitle');
+  const qs = 0.92 + 0.08 * easeBack(t / 0.45) + Math.sin(t * 5) * 0.012;
+  ctx.save();
+  ctx.translate(W / 2, 640);
+  ctx.scale(qs, qs);
+  fitFont(ctx, q, 980, 150, '400', DISPLAY);
+  ctx.lineWidth = 14;
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+  ctx.strokeText(q, 0, 0);
+  ctx.fillStyle = '#ffd700';
+  ctx.fillText(q, 0, 0);
+  ctx.restore();
+  const im = T.t('introMode', { mode: T.t('mode.' + match.mode.meta.id) });
+  fitFont(ctx, im, 960, 36, '700', BODY);
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillText(im, W / 2, 745);
+
+  // logolar: yerinde başlar, küçük bir kayma + büyüme
+  const ay = 960;
+  const byy = 1300;
+  const pa = easeBack(t / 0.5);
+  const pb = easeBack((t - 0.1) / 0.5);
+  const ax = 280 - (1 - pa) * 70;
+  const bx = W - 280 + (1 - pb) * 70;
+  drawLogo(ctx, A, ax, ay, 150 * (0.85 + 0.15 * pa));
+  drawLogo(ctx, B, bx, byy, 150 * (0.85 + 0.15 * pb));
+  const vs = 0.85 + 0.15 * easeBack((t - 0.15) / 0.4);
   ctx.save();
   ctx.translate(W / 2, (ay + byy) / 2);
   ctx.scale(vs, vs);
   ctx.font = `400 140px ${DISPLAY}`;
-  ctx.fillStyle = '#ffd700';
+  ctx.lineWidth = 12;
+  ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+  ctx.strokeText('VS', 0, 0);
+  ctx.fillStyle = '#ffffff';
   ctx.fillText('VS', 0, 0);
   ctx.restore();
   ctx.fillStyle = '#fff';
@@ -200,18 +229,7 @@ function drawIntro(ctx, match, assets, opts) {
   fitFont(ctx, upper(B.name), 560, 62, '900', BODY);
   ctx.textAlign = 'right';
   ctx.fillText(upper(B.name), bx - 180, byy);
-
   ctx.textAlign = 'center';
-  const T = opts.texts;
-  ctx.globalAlpha = fade * ease((t - 0.8) / 0.4);
-  const it = T.t('introTitle');
-  fitFont(ctx, it, 960, 64, '400', DISPLAY);
-  ctx.fillStyle = '#fff';
-  ctx.fillText(it, W / 2, 720);
-  const im = T.t('introMode', { mode: T.t('mode.' + match.mode.meta.id) });
-  fitFont(ctx, im, 960, 36, '700', BODY);
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.fillText(im, W / 2, 790);
 
   // geri sayım
   const ticks = [0.9, 1.7, 2.5];
@@ -222,7 +240,7 @@ function drawIntro(ctx, match, assets, opts) {
       ctx.globalAlpha = fade * (1 - dt / 0.8);
       ctx.font = `400 ${Math.round(220 * s)}px ${DISPLAY}`;
       ctx.fillStyle = '#ffd700';
-      ctx.fillText(String(3 - i), W / 2, 1600);
+      ctx.fillText(String(3 - i), W / 2, 1620);
     }
   }
   ctx.restore();

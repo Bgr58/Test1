@@ -4,7 +4,7 @@ import http from 'node:http';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { publishPlan, Automation, judge } from '../automation.js';
+import { publishPlan, Automation, judge, parseYoutubeId } from '../automation.js';
 
 const H = 3600_000;
 
@@ -74,7 +74,7 @@ test('YouTube: bağlanma, zamanlanmış yükleme, kapak hatası yüklemeyi bozma
     assert.equal(url.searchParams.get('access_type'), 'offline');
     await assert.rejects(yt.handleCallback({ code: 'c', state: 'sahte' }, 'http://localhost:3000/cb'), /Oturum/);
     await yt.handleCallback({ code: 'c', state: url.searchParams.get('state') }, 'http://localhost:3000/cb');
-    assert.deepEqual(await yt.status(), { configured: true, connected: true, channelTitle: 'Test Kanal', channelId: 'UC1' });
+    assert.deepEqual(await yt.status(), { configured: true, connected: true, channelTitle: 'Test Kanal', channelId: 'UC1', canEdit: false });
 
     // Automation üzerinden: üretilmiş bir işi yükle
     const a = new Automation({ root, port: 0, youtube: yt, log: { log() {}, warn() {}, error() {} } });
@@ -236,6 +236,72 @@ test('tahmin takibi: tam skor / sonuç / ıska, ertelenen maç sayılmaz, bitmem
     await a.addTracked({ fixture: fixture('e9', 30), score: [1, 0], modeId: 'race' });
     await assert.rejects(a.addTracked({ fixture: fixture('e10', 30), score: [1, -1] }), /Geçersiz skor/);
   } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('maç sonunda açıklama güncellenir: izin yoksa beklenir, link eklenince başa sonuç + karne yazılır, ikinci kez yazılmaz', async () => {
+  const videos = { VIDabc12345: { title: 'Barcelona vs Villarreal Prediction ⚽ #shorts', description: 'Who wins? 🤔\n#barcelona', categoryId: '17', tags: ['x'] } };
+  const puts = [];
+  let scope = 'https://www.googleapis.com/auth/youtube.upload';
+  const mock = http.createServer(async (req, res) => {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const u = new URL(req.url, 'http://x');
+    const json = (st, o) => { res.writeHead(st, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
+    if (u.pathname === '/token') return json(200, { access_token: 'A', refresh_token: 'R', expires_in: 3600, scope });
+    if (u.pathname === '/yt/channels') return json(200, { items: [{ id: 'UC1', snippet: { title: 'K' } }] });
+    if (u.pathname === '/yt/videos' && req.method === 'GET') {
+      const v = videos[u.searchParams.get('id')];
+      return json(200, { items: v ? [{ id: u.searchParams.get('id'), snippet: v }] : [] });
+    }
+    if (u.pathname === '/yt/videos' && req.method === 'PUT') {
+      const b = JSON.parse(Buffer.concat(chunks).toString());
+      puts.push(b);
+      videos[b.id] = { ...videos[b.id], ...b.snippet };
+      return json(200, b);
+    }
+    json(404, {});
+  });
+  await new Promise((r) => mock.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${mock.address().port}`;
+  Object.assign(process.env, { YT_AUTH_URL: base + '/auth', YT_TOKEN_URL: base + '/token', YT_API_URL: base + '/yt', YT_UPLOAD_URL: base + '/up' });
+  const { YouTube } = await import('../youtube.js?mock3=' + Date.now());
+  const root = await mkdtemp(path.join(os.tmpdir(), 'yt3-'));
+  try {
+    assert.equal(parseYoutubeId('https://youtube.com/shorts/VIDabc12345?feature=share'), 'VIDabc12345');
+    const yt = new YouTube(path.join(root, 'data'));
+    await yt.saveClient({ clientId: '1-a.apps.googleusercontent.com', clientSecret: 's' });
+    const connect = async () => {
+      const url = new URL(await yt.authUrl('http://localhost:3000/cb'));
+      await yt.handleCallback({ code: 'c', state: url.searchParams.get('state') }, 'http://localhost:3000/cb');
+    };
+    await connect();
+    assert.equal((await yt.status()).canEdit, false);
+    const results = { m1: { completed: true, statusName: 'STATUS_FULL_TIME', home: { score: 2 }, away: { score: 1 } } };
+    const a = new Automation({ root, port: 0, youtube: yt, log: { log() {}, warn() {}, error() {} }, getResult: async (id) => results[id] });
+    await a.load();
+    const job = await a.addTracked({ fixture: { ...fixture('m1', 0), date: new Date(Date.now() - 3 * H).toISOString() }, score: [2, 1], modeId: 'ring', lang: 'en' });
+    await a.setYoutubeLink(job.id, 'https://youtube.com/shorts/VIDabc12345');
+    await a.checkResults();
+    assert.equal(job.verdict, 'exact');
+    assert.equal(puts.length, 0, 'düzenleme izni yokken açıklama değiştirilmemeli');
+    scope += ' https://www.googleapis.com/auth/youtube.force-ssl'; // kullanıcı bağlantıyı yeniledi
+    await connect();
+    assert.equal((await yt.status()).canEdit, true);
+    await a.updateDescriptions();
+    assert.equal(puts.length, 1);
+    const d = videos.VIDabc12345.description;
+    assert.match(d, /^✅ NAILED IT! We predicted Barcelona 2-1 Villarreal and it finished 2-1! 🔮\n📊 Our record: 1\/1 results right \(100%\), 1 exact scores/);
+    assert.match(d, /\n\nWho wins\? 🤔\n#barcelona$/, 'eski açıklama altta korunmalı');
+    assert.equal(puts[0].snippet.title, 'Barcelona vs Villarreal Prediction ⚽ #shorts');
+    assert.deepEqual(puts[0].snippet.tags, ['x']);
+    job.youtube.descUpdated = null; // tekrar denense bile ikinci kez yazmamalı
+    await a.updateDescriptions();
+    assert.equal(puts.length, 1);
+    await assert.rejects(a.setYoutubeLink(job.id, 'https://example.com'), /anlaşılamadı/);
+  } finally {
+    mock.close();
     await rm(root, { recursive: true, force: true });
   }
 });

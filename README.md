@@ -145,6 +145,14 @@ Notlar:
   "✅ NAILED IT! We predicted Kosovo 0-0 Israel and it finished 0-0! 🔮 📊 Our record: 3/4 results right (75%)…".
   Topluluk gönderisi, sabit yorum ya da bir sonraki videonun açıklaması için kullanılabilir.
   Metinler videonun dilinde gelir ve metin düzenleyicideki "Tahmin takibi" bölümünden değiştirilebilir.
+- **📅 Günün özeti:** Karnede gün seçip butona bas. O günün tüm sonuçları ve genel karne kopyalanır
+  (YouTube → Oluştur → Gönderi oluştur'a yapıştırmak için).
+- **Açıklamaların otomatik güncellenmesi:** Maç bitince videonun YouTube açıklamasının **başına** sonuç satırı ve karne eklenir;
+  eski açıklama altında kalır, başlık ve etiketler değişmez.
+  - Araçla yüklenen videolarda otomatik. **Elle yüklediğin** videolarda maçın yanındaki **🔗** ile Shorts linkini yapıştır.
+  - Google'a ek izin gerekir: YouTube bağlıyken panel "🔄 Bağlantıyı yenile" der; bir kere tıklayıp izin ver.
+    Bu izin, denetim onayı beklenirken de çalışır (sadece mevcut videoların açıklamasını düzenler).
+  - Kapatmak için YouTube kutusundaki "Maç bitince video açıklamasının başına…" kutusunun işaretini kaldır.
 - Kuyruktan üretilen videolar ve takvimden seçip panelde **"Kaydet ve indir"** ile ürettiğin videolar takibe girer.
   Takımları elle yazdığın (takvimden seçmediğin) videolar takip edilmez.
 

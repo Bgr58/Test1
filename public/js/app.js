@@ -700,8 +700,28 @@ function postText(j, stats) {
   return `${T.t(key, vars)}\n${T.t('postRecord', { hits: stats.hits, total: stats.total, pct: stats.pct, exact: stats.exact })}`;
 }
 
+const dayKey = (iso) => localDay(new Date(iso));
+
+// Günün özeti: seçilen gündeki sonucu belli maçlar + genel karne (kuyruğun dilinde)
+function daySummary(jobs, day) {
+  const lang = qLang.value;
+  const T = makeTexts(lang, overridesFor(lang));
+  const st = trackStats(jobs);
+  const list = jobs
+    .filter((j) => ['exact', 'outcome', 'miss'].includes(j.verdict) && dayKey(j.fixture.date) === day)
+    .sort((a, b) => a.fixture.date.localeCompare(b.fixture.date));
+  const key = { exact: 'sumExact', outcome: 'sumOutcome', miss: 'sumMiss' };
+  const date = new Date(day + 'T12:00:00').toLocaleDateString(LANGS[lang]?.locale || 'en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const lines = list.map((j) => T.t(key[j.verdict], {
+    home: j.fixture.home.name, away: j.fixture.away.name, final: `${j.actual.home}-${j.actual.away}`, pred: j.result.score.join('-'),
+  }));
+  const dayHits = list.filter((j) => j.verdict !== 'miss').length;
+  return [T.t('sumTitle', { date }), ...lines, '', T.t('sumRecord', { hits: st.hits, total: st.total, pct: st.pct, exact: st.exact, dayHits, dayTotal: list.length })].join('\n');
+}
+
 function renderStats(q) {
   const st = trackStats(q.jobs);
+  const days = [...new Set(q.jobs.filter((j) => ['exact', 'outcome', 'miss'].includes(j.verdict)).map((j) => dayKey(j.fixture.date)))].sort().reverse();
   const box = $('#qStats');
   if (!st.total && !st.waiting) {
     box.innerHTML = '<span class="muted">📊 Tahmin karnesi: maçlar bittikçe sonuçlar burada görünecek.</span>';
@@ -718,9 +738,20 @@ function renderStats(q) {
       <span class="stat">Tam skor <b>${st.exact}</b></span>
       ${st.last.length ? `<span class="stat" title="Son maçlar">Son: ${st.last.map((j) => icon[j.verdict]).join('')}</span>` : ''}
       ${st.waiting ? `<span class="muted">${st.waiting} maç sonucu bekleniyor</span>` : ''}
+      ${days.length ? `<select id="qDay" title="Özet günü">${days.map((d) => `<option value="${d}">${new Date(d + 'T12:00:00').toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short' })}</option>`).join('')}</select>
+      <button id="qSummary" class="secondary" title="Seçilen günün tüm sonuçlarını ve karneyi kopyala">📅 Günün özeti</button>` : ''}
       <button id="qCheck" class="secondary" title="Biten maçların sonucunu şimdi kontrol et">🔄</button>
     </div>
     ${modes ? `<div class="muted small">Formata göre doğru sonuç: ${modes}</div>` : ''}`;
+  $('#qSummary')?.addEventListener('click', async () => {
+    const text = daySummary(q.jobs, $('#qDay').value);
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus('Günün özeti kopyalandı — YouTube “Gönderi oluştur”a yapıştırabilirsin.');
+    } catch {
+      prompt('Günün özeti (kopyala):', text.replace(/\n/g, ' / '));
+    }
+  });
   $('#qCheck').addEventListener('click', async () => {
     try {
       const r = await api('POST', '/api/queue/check-results');
@@ -756,6 +787,11 @@ function renderYoutubeBox(yt, settings) {
   if (yt.connected) {
     html = `<div class="row"><span>✅ Bağlı kanal: <b>${escapeHtml(yt.channelTitle || '(adı alınamadı)')}</b></span>
       <button id="ytDisconnect" class="secondary">Bağlantıyı kes</button></div>`;
+    html += yt.canEdit
+      ? `<label class="check"><input id="ytAutoDesc" type="checkbox" ${settings.autoDesc !== false ? 'checked' : ''} />
+          Maç bitince video açıklamasının başına sonucu ve karneyi ekle (🔗 ile linki bağlanan veya araçla yüklenen videolar)</label>`
+      : `<p class="warn">📝 Maç sonunda açıklamaların otomatik güncellenmesi için Google'a ek izin vermelisin:
+          <a class="btn-link" href="/auth/youtube">🔄 Bağlantıyı yenile</a></p>`;
   } else if (yt.configured) {
     html = `<div class="row"><span>OAuth bilgileri kayıtlı.</span>
       <a class="btn-link" href="/auth/youtube">🔗 Google hesabıyla bağlan</a>
@@ -777,6 +813,7 @@ function renderYoutubeBox(yt, settings) {
   }
   box.innerHTML = html;
   $('#ytDisconnect')?.addEventListener('click', () => api('POST', '/api/youtube/disconnect').then(loadQueue));
+  $('#ytAutoDesc')?.addEventListener('change', (e) => api('POST', '/api/queue/settings', { autoDesc: e.target.checked }).then(() => loadQueue(true)));
   $('#ytReset')?.addEventListener('click', () => api('POST', '/api/youtube/disconnect').then(() => {
     box.innerHTML = '';
     renderYoutubeBox({ configured: false }, settings);
@@ -821,6 +858,9 @@ function jobRow(j, draft) {
       const [vt, vc] = VERDICT[j.verdict];
       const fin = j.verdict === 'void' ? '' : `Sonuç <b>${j.actual.home}-${j.actual.away}</b> · `;
       info = `<span class="verdict ${vc}">${fin}${vt}</span>`;
+      if (yt?.descUpdated) info += ' · 📝 açıklama güncellendi';
+      else if (yt?.descError) info += ` · <span class="err">açıklama: ${escapeHtml(yt.descError)}</span>`;
+      else if (yt?.id && j.verdict !== 'void') info += ' · 📝 açıklama güncellenecek';
     } else if (j.result?.score && new Date(j.fixture.date) < Date.now()) {
       info = (info ? info + ' · ' : '') + '<span class="muted">⏳ sonuç bekleniyor</span>';
     }
@@ -829,6 +869,7 @@ function jobRow(j, draft) {
     actions = [
       j.status === 'queued' ? '<button data-act="unstart" title="Seçilenlere geri al (format değiştirmek için)">↩</button>' : '',
       ['exact', 'outcome', 'miss'].includes(j.verdict) ? '<button data-act="post" title="“Tahmin tuttu mu?” paylaşım metnini kopyala">📋</button>' : '',
+      j.result && !yt?.uploadedAt ? `<button data-act="link" title="${yt?.id ? 'YouTube linkini değiştir' : 'Yüklediğin videonun YouTube linkini bağla (maç sonunda açıklaması otomatik güncellenir)'}">🔗</button>` : '',
       j.dir && j.result ? '<button data-act="open" title="Klasörü aç">📂</button>' : '',
       yt?.url ? `<a href="${yt.url}" target="_blank" rel="noopener" title="YouTube'da aç">▶</a>` : '',
       j.status === 'failed' ? '<button data-act="retry" title="Tekrar dene">↻</button>' : '',
@@ -973,6 +1014,14 @@ async function onRowAction(e) {
       await api('DELETE', `/api/queue/${id}`);
     }
     if (b.dataset.act === 'unstart') await api('POST', `/api/queue/${id}/unstart`);
+    if (b.dataset.act === 'link') {
+      const url = prompt('Bu maçın YouTube Shorts linkini yapıştır (boş bırakırsan bağlantı kaldırılır):', job?.youtube?.url || '');
+      if (url === null) return;
+      await api('POST', `/api/queue/${id}/youtube`, { url: url.trim() });
+      setStatus(url.trim() ? 'Link bağlandı. Maç bitince açıklaması otomatik güncellenecek.' : 'Link kaldırıldı.');
+      await loadQueue(true);
+      return;
+    }
     if (b.dataset.act === 'post') {
       const text = postText(job, trackStats(lastQueue.jobs));
       try {

@@ -142,7 +142,7 @@ async function handleApi(req, res, url, q) {
     await automation.updateSettings(await readJson(req));
     return send(res, 200, await queueState());
   }
-  let mm = p.match(/^\/api\/queue\/([a-f0-9]+)(?:\/(retry|open|mode|luck|unstart))?$/);
+  let mm = p.match(/^\/api\/queue\/([a-f0-9]+)(?:\/(retry|open|mode|luck|unstart|youtube))?$/);
   if (mm) {
     const [, id, action] = mm;
     if (m === 'DELETE' && !action) {
@@ -152,6 +152,10 @@ async function handleApi(req, res, url, q) {
     if (m === 'POST' && action === 'mode') {
       await automation.setMode(id, (await readJson(req)).modeId);
       return send(res, 200, { ok: true });
+    }
+    if (m === 'POST' && action === 'youtube') {
+      const job = await automation.setYoutubeLink(id, (await readJson(req)).url);
+      return send(res, 200, { job });
     }
     if (m === 'POST' && action === 'luck') {
       await automation.setLuck(id, (await readJson(req)).luck);

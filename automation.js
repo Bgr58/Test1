@@ -5,6 +5,7 @@ import { createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { makeTexts } from './public/js/i18n.js';
 
 const MODES = ['ring', 'plinko', 'football', 'race'];
 const MAX_ATTEMPTS = 3;
@@ -13,7 +14,34 @@ const RETRY_MS = 3 * 60_000;
 export const DEFAULT_SETTINGS = {
   uploadMode: 'off', // 'off' = sadece üret (klasöre), 'youtube' = otomatik yükle
   leadMinutes: 60, // maç saatinden kaç dakika önce yayına girsin
+  autoDesc: true, // maç sonunda YouTube açıklamasının başına sonucu ekle
 };
+
+// Tahmin karnesi (ertelenenler sayılmaz)
+export function trackStats(jobs) {
+  const judged = jobs.filter((j) => ['exact', 'outcome', 'miss'].includes(j.verdict));
+  const total = judged.length;
+  const exact = judged.filter((j) => j.verdict === 'exact').length;
+  const hits = exact + judged.filter((j) => j.verdict === 'outcome').length;
+  return { total, hits, exact, pct: total ? Math.round((100 * hits) / total) : 0 };
+}
+
+// Maç sonu metni (📋 paylaşım metni ve açıklama başı aynı): sonuç satırı + karne satırı
+export function resultLines(job, stats) {
+  const T = makeTexts(job.settings?.lang || 'en', job.settings?.overrides || {});
+  const f = job.fixture;
+  const vars = { home: f.home.name, away: f.away.name, pred: job.result.score.join('-'), final: `${job.actual.home}-${job.actual.away}` };
+  const key = { exact: 'postExact', outcome: 'postOutcome', miss: 'postMiss' }[job.verdict];
+  return [T.t(key, vars), T.t('postRecord', { hits: stats.hits, total: stats.total, pct: stats.pct, exact: stats.exact })];
+}
+
+// YouTube linkinden video kimliği (shorts/ID, watch?v=ID, youtu.be/ID ya da sadece ID)
+export function parseYoutubeId(input) {
+  const s = String(input || '').trim();
+  if (/^[\w-]{11}$/.test(s)) return s;
+  const m = s.match(/(?:youtube\.com\/(?:shorts\/|watch\?(?:.*&)?v=|live\/|embed\/)|youtu\.be\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
 
 const slug = (s) =>
   String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ı/g, 'i').replace(/[^a-zA-Z0-9]+/g, '').slice(0, 24) || 'takim';
@@ -124,7 +152,56 @@ export class Automation {
       }
     }
     if (changed) await this.save();
+    await this.updateDescriptions(now);
     return changed;
+  }
+
+  // Sonucu belli olan ve YouTube linki bilinen videoların açıklamasının başına sonucu ekle
+  async updateDescriptions(now = Date.now()) {
+    if (!this.state.settings.autoDesc || !this.yt) return 0;
+    const due = this.state.jobs.filter(
+      (j) => ['exact', 'outcome', 'miss'].includes(j.verdict) && j.youtube?.id && !j.youtube.descUpdated
+        && (j.youtube.descTries || 0) < 3 && (j.youtube.descNextTry || 0) <= now,
+    );
+    if (!due.length) return 0;
+    const st = await this.yt.status();
+    if (!st.connected || !st.canEdit) return 0; // panel "bağlantıyı yenile" uyarısı gösterir
+    const stats = trackStats(this.state.jobs);
+    let n = 0;
+    for (const j of due) {
+      const lines = resultLines(j, stats);
+      try {
+        await this.yt.updateDescription(j.youtube.id, (old) => (old.startsWith(lines[0]) ? old : `${lines.join('\n')}\n\n${old}`));
+        j.youtube.descUpdated = new Date(now).toISOString();
+        j.youtube.descError = '';
+        n++;
+        this.log.log(`✓ Açıklama güncellendi: ${j.fixture.home.name}-${j.fixture.away.name}`);
+      } catch (e) {
+        j.youtube.descTries = (j.youtube.descTries || 0) + 1;
+        j.youtube.descNextTry = now + 30 * 60_000;
+        j.youtube.descError = e.message;
+        this.log.warn(`[açıklama] ${j.fixture.home.name}-${j.fixture.away.name}: ${e.message}`);
+      }
+    }
+    await this.save();
+    return n;
+  }
+
+  // Elle yüklenen videonun linkini maça bağla (maç sonunda açıklaması otomatik güncellensin)
+  async setYoutubeLink(id, url) {
+    const j = this.getJob(id);
+    if (!j) throw new Error('Maç bulunamadı');
+    if (!url) {
+      if (j.youtube && !j.youtube.uploadedAt) j.youtube = null;
+      await this.save();
+      return j;
+    }
+    const vid = parseYoutubeId(url);
+    if (!vid) throw new Error('YouTube linki anlaşılamadı (ör. https://youtube.com/shorts/XXXXXXXXXXX)');
+    j.youtube = { ...(j.youtube || {}), id: vid, url: `https://youtube.com/shorts/${vid}`, linked: true, descTries: 0, descError: '' };
+    await this.save();
+    this.updateDescriptions().catch((e) => this.log.warn('[açıklama]', e.message));
+    return j;
   }
 
   // Panelden elle kaydedilen (takvimden seçilmiş) videoyu da takibe al
@@ -162,6 +239,7 @@ export class Automation {
     const next = { ...this.state.settings };
     if (s.uploadMode === 'off' || s.uploadMode === 'youtube') next.uploadMode = s.uploadMode;
     if (Number.isFinite(+s.leadMinutes)) next.leadMinutes = Math.max(0, Math.min(24 * 60, Math.round(+s.leadMinutes)));
+    if (typeof s.autoDesc === 'boolean') next.autoDesc = s.autoDesc;
     this.state.settings = next;
     // YouTube'a geçildiyse: klasörde bekleyen (henüz başlamamış maçların) videolarını da yükle
     if (next.uploadMode === 'youtube') {

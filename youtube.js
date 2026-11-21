@@ -13,7 +13,8 @@ const URLS = {
   api: process.env.YT_API_URL || 'https://www.googleapis.com/youtube/v3',
   upload: process.env.YT_UPLOAD_URL || 'https://www.googleapis.com/upload/youtube/v3',
 };
-const SCOPES = ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube.readonly'];
+const EDIT_SCOPE = 'https://www.googleapis.com/auth/youtube.force-ssl'; // maç sonunda açıklamayı güncellemek için
+const SCOPES = ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube.readonly', EDIT_SCOPE];
 
 export class YouTube {
   constructor(dataDir) {
@@ -69,6 +70,8 @@ export class YouTube {
       connected: !!token?.refresh_token,
       channelTitle: token?.channelTitle || '',
       channelId: token?.channelId || '',
+      // eski bağlantılarda düzenleme izni yok → panel "bağlantıyı yenile" der
+      canEdit: !!token?.refresh_token && String(token.scope || '').split(/\s+/).some((x) => x === EDIT_SCOPE || x === 'https://www.googleapis.com/auth/youtube'),
     };
   }
 
@@ -103,7 +106,7 @@ export class YouTube {
     });
     const j = await r.json();
     if (!r.ok || !j.refresh_token) throw new Error(`Token alınamadı: ${j.error_description || j.error || r.status}`);
-    const token = { refresh_token: j.refresh_token, access_token: j.access_token, expiry: Date.now() + (j.expires_in - 60) * 1000 };
+    const token = { refresh_token: j.refresh_token, access_token: j.access_token, expiry: Date.now() + (j.expires_in - 60) * 1000, scope: j.scope || '' };
     await this.writeJson(this.tokenFile, token);
     try {
       await this.refreshChannel();
@@ -192,6 +195,25 @@ export class YouTube {
     const j = await put.json().catch(() => ({}));
     if (!put.ok || !j.id) throw new Error(apiError(j, put.status));
     return { id: j.id, privacyStatus: j.status?.privacyStatus, publishAt: j.status?.publishAt || null };
+  }
+
+  /**
+   * Videonun açıklamasını günceller: edit(eskiAçıklama) → yeniAçıklama. Başlık/etiketler korunur.
+   * @returns {Promise<boolean>} değişiklik yapıldıysa true
+   */
+  async updateDescription(videoId, edit) {
+    const r = await this.api('GET', `/videos?part=snippet&id=${encodeURIComponent(videoId)}`);
+    const v = r.items?.[0];
+    if (!v) throw new Error('Video bulunamadı (silinmiş ya da bağlı kanala ait değil)');
+    const sn = v.snippet || {};
+    const next = cut(edit(sn.description || ''), 4900);
+    if (next === sn.description) return false;
+    const snippet = { title: sn.title, description: next, categoryId: sn.categoryId || '17' };
+    if (sn.tags) snippet.tags = sn.tags;
+    if (sn.defaultLanguage) snippet.defaultLanguage = sn.defaultLanguage;
+    if (sn.defaultAudioLanguage) snippet.defaultAudioLanguage = sn.defaultAudioLanguage;
+    await this.api('PUT', '/videos?part=snippet', { id: videoId, snippet });
+    return true;
   }
 
   // Kapak: telefon doğrulaması yapılmış kanallarda çalışır; Shorts'ta YouTube kullanmayabilir.

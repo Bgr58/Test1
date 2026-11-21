@@ -1,10 +1,10 @@
 // Görünmez üretici: sunucudaki kuyruk işini alır, videoyu + kapağı üretip sunucuya gönderir.
-import { Match } from './match.js';
+import { Match, findSeed } from './match.js';
 import { renderFrame } from './render.js';
 import { Sound } from './audio.js';
 import { Recorder } from './recorder.js';
 import { buildTeamAssets, loadImage, extractColors } from './assets.js';
-import { computeStrength } from './strength.js';
+import { computeStrength, outcomeProbs, pickOutcome } from './strength.js';
 import { randomSeed } from './rng.js';
 import { makeTexts } from './i18n.js';
 import { weakColors, fixtureSubtitle, shortsText, makeThumbnail, ensureFonts } from './produce.js';
@@ -64,7 +64,16 @@ async function run() {
   const sound = new Sound();
   await sound.resume();
   sound.setMonitor(false); // hoparlörden çalma, sadece videoya kaydet
-  const seed = randomSeed();
+  let seed = randomSeed();
+  let realistic = null;
+  if (st.realistic) {
+    // 🎯 Gerçekçi: sonucu gerçek futbol olasılıklarıyla çek, onu kendiliğinden veren fizik maçını bul
+    const probs = outcomeProbs(strength.diff);
+    const target = pickOutcome(probs, Math.random());
+    const r = findSeed({ teams: assets.teams, modeId, duration: st.duration, edge: strength.edge, texts }, target, seed);
+    seed = r.seed;
+    realistic = { target, probs, tries: r.tries, missed: !!r.missed };
+  }
   await prepareMusic(sound, st.music, seed);
   const match = new Match({ teams: assets.teams, modeId, seed, duration: st.duration, edge: strength.edge, audio: sound, texts });
   const canvas = document.getElementById('canvas');
@@ -96,7 +105,7 @@ async function run() {
   const r = await fetch(`/api/jobs/${jobId}/rendered`, {
     method: 'POST',
     headers: { ...H, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ score: match.score, modeId, seed, ext: rec.ext, title, desc, subtitle, elo: [A.elo, B.elo] }),
+    body: JSON.stringify({ score: match.score, modeId, seed, ext: rec.ext, title, desc, subtitle, elo: [A.elo, B.elo], realistic }),
   });
   if (!r.ok) throw new Error('Sonuç bildirilemedi');
 }

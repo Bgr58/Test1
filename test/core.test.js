@@ -116,3 +116,29 @@ test('alt başlık ligin ülke saatiyle; açıklamada anket + lig etiketi var, s
   const titles = new Set(['Real Madrid|Getafe', 'Arsenal|Chelsea', 'Inter|Milan', 'Ajax|PSV', 'Benfica|Porto', 'Lyon|Nice'].map((x) => mk(...x.split('|')).title.replace(/^.*?(Prediction|Can|who takes|Who wins).*$/, '$1')));
   assert.ok(titles.size >= 2, 'farklı maçlarda farklı başlık çeşitleri çıkmalı');
 });
+
+test('gerçekçi mod: olasılıklar mantıklı, videodaki maç arka plan simülasyonuyla aynı skoru verir', async () => {
+  const { outcomeProbs, pickOutcome, computeStrength } = await import('../public/js/strength.js');
+  const { findSeed, STEP } = await import('../public/js/match.js');
+  const p = outcomeProbs(345); // Real Madrid (ev) - Celta
+  assert.ok(p.home > 0.7 && p.home < 0.85, 'favori ~%75-80');
+  assert.ok(p.away >= 0.04 && p.away < 0.12, 'sürpriz mümkün ama seyrek');
+  assert.ok(Math.abs(p.home + p.draw + p.away - 1) < 1e-9);
+  const even = outcomeProbs(0);
+  assert.ok(even.draw > 0.25 && Math.abs(even.home - even.away) < 1e-9);
+  assert.equal(pickOutcome(p, 0.01), 1);
+  assert.equal(pickOutcome(p, 0.999), -1);
+
+  const edge = computeStrength({ eloA: 1960, eloB: 1680, homeAdvantage: true, influence: 0.3 }).edge;
+  for (const modeId of ['ring', 'plinko', 'football', 'race']) {
+    for (const target of [1, 0, -1]) {
+      const r = findSeed({ teams, modeId, duration: 30, edge }, target, 12345);
+      assert.ok(!r.missed, `${modeId} hedef ${target} bulunamadı`);
+      assert.equal(Math.sign(r.score[0] - r.score[1]), target);
+      // videodaki tam akış (giriş → oyun → bitiş) aynı skoru vermeli
+      const full = new Match({ teams, modeId, seed: r.seed, duration: 30, edge });
+      while (!full.done) full.step();
+      assert.deepEqual(full.score, r.score, `${modeId}: video skoru simülasyondan farklı`);
+    }
+  }
+});

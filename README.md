@@ -86,7 +86,12 @@ Turnuva eklemek için `data.js` içindeki `COMPETITIONS` listesine ESPN lig kodu
 1. **Seç:** "Günün maçları" listesinde maçların yanındaki **＋** ile maçları seç. Seçilenler "1 · Seçilen maçlar" listesine gelir.
    Tekrar tıklayınca (✓) ya da listedeki ✕ ile seçimden çıkar. **Seçmek üretimi başlatmaz.**
 2. **Format ve ayarlar:** Her maç için görsel formatı seç ya da "Tümünün formatı" ile hepsine birden ver.
-   🎲 Rastgele seçilirse formatlar sırayla dağıtılır. Her maça ayrıca bir **şans** seviyesi verilebilir (ya da "Tümünün şansı"):
+   🎲 Rastgele seçilirse formatlar sırayla dağıtılır.
+   **🎯 Gerçekçi (varsayılan):** Sonuç, takımların gücünden hesaplanan gerçek futbol olasılıklarıyla seçilir
+   (ör. Real Madrid (ev) – Celta: %79 Real, %16 berabere, %5 Celta). Araç maçı arka planda görünmez şekilde
+   birkaç kez oynatıp bu sonucu kendiliğinden veren fizik maçını seçer (~0,1 sn); videodaki oyun gerçek bir fizik maçıdır.
+   Sürprizler gerçek futboldaki kadar seyrek olur. Panelde elle kayıt için de "🎯 Gerçekçi sonuç" kutusu var.
+   Daha sürprizli videolar istersen maç başına diğer **şans** seviyeleri seçilebilir (ya da "Tümünün şansı"):
    🎲 Tam şans (güç hiç etkilemez), Çoğu şans, Dengeli, Güç ağırlıklı, Güçlü favori. Seçilmezse paneldeki ortak "Güç etkisi" kullanılır.
    Örnek simülasyon (200 Elo fark + ev sahibi): "Güçlü favori"de favori ~%50–60 kazanır ama ~%20 kaybeder. **Video ve YouTube dili** (varsayılan English), oyun süresi,
    yükleme modu ve yayın zamanı da burada. Güç etkisi, ev sahibi avantajı ve düzenlenmiş metinler paneldeki ayarlardan alınır.
@@ -153,6 +158,10 @@ Notlar:
   - Google'a ek izin gerekir: YouTube bağlıyken panel "🔄 Bağlantıyı yenile" der; bir kere tıklayıp izin ver.
     Bu izin, denetim onayı beklenirken de çalışır (sadece mevcut videoların açıklamasını düzenler).
   - Kapatmak için YouTube kutusundaki "Maç bitince video açıklamasının başına…" kutusunun işaretini kaldır.
+- **Silme = kanaldan da silindi:** Panelden ✕ ile silinen maç karneden, günün özetinden ve otomatik açıklamadan çıkar
+  (videoyu YouTube Studio'dan sen silersin).
+- **Aynı maça yeni video üretirsen sadece en sonuncusu geçerlidir.** Eskiler soluk görünür ve hesaba katılmaz.
+  En yenisini silersen bir öncekisi tekrar geçerli olur.
 - Kuyruktan üretilen videolar ve takvimden seçip panelde **"Kaydet ve indir"** ile ürettiğin videolar takibe girer.
   Takımları elle yazdığın (takvimden seçmediğin) videolar takip edilmez.
 

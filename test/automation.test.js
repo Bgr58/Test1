@@ -158,6 +158,8 @@ test('seç → format → başlat akışı: taslak üretilmez, başlatınca ayar
     const d2 = await a.addDraft({ fixture: fixture('d2', 22) });
     const d3 = await a.addDraft({ fixture: fixture('d3', 24) });
     assert.equal(d1.status, 'draft');
+    assert.equal(d1.luck, 'real', 'varsayılan şans: Gerçekçi');
+    await a.setLuck(d1.id, null); // ortak ayara çek
     assert.equal(kicked, 0, 'taslak eklemek üretimi tetiklememeli');
     // taslak varken worker hiçbir şey yapmamalı
     a.render = async () => assert.fail('taslak üretilmemeli');
@@ -302,6 +304,33 @@ test('maç sonunda açıklama güncellenir: izin yoksa beklenir, link eklenince 
     await assert.rejects(a.setYoutubeLink(job.id, 'https://example.com'), /anlaşılamadı/);
   } finally {
     mock.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('silme ve "en son video geçerli": eski tahmin karneye girmez, yenisi silinince eskisi geri gelir', async () => {
+  const { trackStats } = await import('../automation.js');
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mt6-'));
+  try {
+    const results = { r1: { completed: true, statusName: 'STATUS_FULL_TIME', home: { score: 0 }, away: { score: 2 } } };
+    const a = new Automation({ root, port: 0, youtube: null, log: { log() {}, warn() {}, error() {} }, getResult: async (id) => results[id] });
+    await a.load();
+    const fx = { ...fixture('r1', 0), date: new Date(Date.now() - 3 * H).toISOString() };
+    const old = await a.addTracked({ fixture: fx, score: [0, 2], modeId: 'ring' }); // eski (gerçekçi olmayan) video
+    await new Promise((r) => setTimeout(r, 5));
+    const neu = await a.addTracked({ fixture: fx, score: [2, 0], modeId: 'plinko' }); // yeniden üretildi
+    assert.equal(old.superseded, true);
+    assert.equal(neu.superseded, false);
+    await a.checkResults();
+    let st = trackStats(a.state.jobs);
+    assert.deepEqual([st.total, st.hits], [1, 0], 'sadece en son video (2-0) sayılır → tutmadı');
+    await a.removeJob(neu.id); // yeni videoyu panelden (ve kanaldan) sildi
+    assert.equal(old.superseded, false, 'eskisi tekrar geçerli');
+    st = trackStats(a.state.jobs);
+    assert.deepEqual([st.total, st.hits, st.exact], [1, 1, 1]);
+    await a.removeJob(old.id);
+    assert.equal(trackStats(a.state.jobs).total, 0, 'silinen video karneden çıkar');
+  } finally {
     await rm(root, { recursive: true, force: true });
   }
 });

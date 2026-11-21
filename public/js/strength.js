@@ -174,3 +174,25 @@ export function computeStrength({ eloA, eloB, valueA, valueB, homeAdvantage = tr
   const e = Math.max(-0.9, Math.min(0.9, (pA - 0.5) * 2 * k));
   return { diff, pA, edge: [e, -e] };
 }
+
+/**
+ * Gerçek futbola yakın sonuç olasılıkları (ev sahibi / berabere / deplasman).
+ * Elo beklentisinden türetilir; beraberlik dengeli maçlarda ~%28, büyük güç farkında ~%15.
+ * Sürpriz her zaman mümkün: hiçbir sonuç %5'in altına inmez.
+ */
+export function outcomeProbs(diff) {
+  const pA = eloWinProb(diff);
+  const draw = Math.max(0.12, 0.28 - 0.32 * Math.abs(pA - 0.5));
+  const home = Math.max(0.05, pA - draw / 2);
+  const away = Math.max(0.05, 1 - pA - draw / 2);
+  const t = home + draw + away;
+  return { home: home / t, draw: draw / t, away: away / t };
+}
+
+// r ∈ [0,1) → 1 (ev sahibi), 0 (berabere), -1 (deplasman)
+export function pickOutcome(probs, r) {
+  return r < probs.home ? 1 : r < probs.home + probs.draw ? 0 : -1;
+}
+
+// "Gerçekçi" modda fizik oyununun güç avantajı (sonucu olasılıklar belirler; fizik doğal kalsın)
+export const REALISTIC_INFLUENCE = 0.3;

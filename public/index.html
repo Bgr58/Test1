@@ -53,6 +53,7 @@
             <label>Tümünün şansı
               <select id="qAllLuck">
                 <option value="keep">— maç başına seç —</option>
+                <option value="real">🎯 Gerçekçi (önerilen)</option>
                 <option value="">Ortak ayar (paneldeki güç etkisi)</option>
                 <option value="0">🎲 Tam şans (%0 güç)</option>
                 <option value="0.2">Çoğu şans (%20 güç)</option>
@@ -158,6 +159,9 @@
             <option value="60">60 sn</option>
           </select>
         </label>
+        <label class="check span2"><input id="realistic" type="checkbox" checked />
+          🎯 <b>Gerçekçi sonuç</b> (önerilen): sonuç gerçek futbol olasılıklarına göre seçilir, sürprizler gerçekteki kadar seyrek olur.
+          Kapalıysa aşağıdaki "Güç etkisi" kullanılır.</label>
         <label class="span2">Güç etkisi: <b id="influenceVal">40%</b>
           <input id="influence" type="range" min="0" max="100" value="40" />
           <small class="muted">0% = tamamen şans. Yüksek değerde güçlü takım daha avantajlı ama yine de kaybedebilir.</small>

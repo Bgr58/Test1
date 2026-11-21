@@ -174,3 +174,19 @@ export class Match {
     return [...this.score];
   }
 }
+
+/**
+ * "Gerçekçi" mod: istenen sonucu (1 ev sahibi, 0 berabere, -1 deplasman) kendiliğinden veren bir seed bul.
+ * Maç görünmez şekilde hızlıca oynatılır; videoda oynanan maç bununla birebir aynıdır (fizik deterministik).
+ * @returns {{seed:number, score:[number,number], tries:number, missed?:boolean}}
+ */
+export function findSeed(opts, target, startSeed, maxTries = 80) {
+  let first = null;
+  for (let i = 0; i < maxTries; i++) {
+    const seed = (startSeed + Math.imul(i, 2654435761)) >>> 0;
+    const score = new Match({ ...opts, seed, audio: null, skipIntro: true }).simulate();
+    if (Math.sign(score[0] - score[1]) === target) return { seed, score, tries: i + 1 };
+    first ||= { seed, score, tries: i + 1 };
+  }
+  return { ...first, missed: true };
+}

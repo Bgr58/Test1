@@ -273,3 +273,5 @@ label.inline select { width: auto; }
 .v-outcome { color: #ffd84d; }
 .v-miss { color: #ff8a9a; }
 .v-void { color: var(--muted); }
+
+.q-row.superseded { opacity: 0.55; }

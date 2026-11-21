@@ -18,8 +18,11 @@ export const DEFAULT_SETTINGS = {
 };
 
 // Tahmin karnesi (ertelenenler sayılmaz)
+// Aynı maç için birden fazla video varsa sadece EN SON üretilen geçerlidir (eskiler superseded).
+export const counts = (j) => ['exact', 'outcome', 'miss'].includes(j.verdict) && !j.superseded;
+
 export function trackStats(jobs) {
-  const judged = jobs.filter((j) => ['exact', 'outcome', 'miss'].includes(j.verdict));
+  const judged = jobs.filter(counts);
   const total = judged.length;
   const exact = judged.filter((j) => j.verdict === 'exact').length;
   const hits = exact + judged.filter((j) => j.verdict === 'outcome').length;
@@ -160,7 +163,7 @@ export class Automation {
   async updateDescriptions(now = Date.now()) {
     if (!this.state.settings.autoDesc || !this.yt) return 0;
     const due = this.state.jobs.filter(
-      (j) => ['exact', 'outcome', 'miss'].includes(j.verdict) && j.youtube?.id && !j.youtube.descUpdated
+      (j) => counts(j) && j.youtube?.id && !j.youtube.descUpdated
         && (j.youtube.descTries || 0) < 3 && (j.youtube.descNextTry || 0) <= now,
     );
     if (!due.length) return 0;
@@ -222,10 +225,11 @@ export class Automation {
       status: 'manual',
       attempts: 0,
       error: '',
-      result: { score, modeId, seed: seed ?? null, manual: true },
+      result: { score, modeId, seed: seed ?? null, manual: true, at: new Date().toISOString() },
       youtube: null,
     };
     this.state.jobs.push(job);
+    this.refreshLatest(job.fixture.id);
     this.state.jobs.sort((a, b) => a.fixture.date.localeCompare(b.fixture.date));
     await this.save();
     return job;
@@ -270,7 +274,7 @@ export class Automation {
         tz: typeof fixture.tz === 'string' ? fixture.tz : null, leagueTag: typeof fixture.leagueTag === 'string' ? fixture.leagueTag : '',
       },
       modeId: MODES.includes(modeId) ? modeId : 'random',
-      luck: null,
+      luck: 'real', // varsayılan: 🎯 Gerçekçi (gerçek futbol olasılıkları)
       settings: null,
       status: 'draft',
       attempts: 0,
@@ -299,8 +303,11 @@ export class Automation {
     const j = this.getJob(id);
     if (!j) throw new Error('Maç bulunamadı');
     if (j.status !== 'draft') throw new Error('Başlatılmış maçın şans ayarı değiştirilemez (önce seçilenlere geri al)');
-    j.luck = luck === null || luck === '' || luck === undefined ? null : Math.max(0, Math.min(1, +luck));
-    if (Number.isNaN(j.luck)) j.luck = null;
+    if (luck === 'real') j.luck = 'real';
+    else {
+      j.luck = luck === null || luck === '' || luck === undefined ? null : Math.max(0, Math.min(1, +luck));
+      if (Number.isNaN(j.luck)) j.luck = null;
+    }
     await this.save();
   }
 
@@ -324,7 +331,8 @@ export class Automation {
         j.modeId = MODES[this.state.rotation % MODES.length];
         this.state.rotation++;
       }
-      j.settings = { ...snap, influence: Number.isFinite(j.luck) ? j.luck : snap.influence };
+      const realistic = j.luck === 'real' || (j.luck == null && !!settings?.realistic);
+      j.settings = { ...snap, realistic, influence: realistic ? 0.3 : Number.isFinite(j.luck) ? j.luck : snap.influence };
       j.status = new Date(j.fixture.date).getTime() <= Date.now() ? 'missed' : 'queued';
     }
     await this.save();
@@ -353,8 +361,18 @@ export class Automation {
     const j = this.getJob(id);
     if (!j) return;
     if (j.status === 'rendering' || j.status === 'uploading') throw new Error('Şu an işleniyor, bitince çıkarabilirsin');
+    // Panelden silinen video kanaldan da silinmiş sayılır (karne/özet/açıklama hesaplarına girmez).
     this.state.jobs = this.state.jobs.filter((x) => x.id !== id);
+    if (j.result) this.refreshLatest(j.fixture.id); // en yenisi silindiyse bir öncekisi tekrar geçerli
     await this.save();
+  }
+
+  // Maç başına en son üretilen tahmini geçerli yap, öncekileri "yerine yenisi üretildi" işaretle
+  refreshLatest(fixtureId) {
+    const withResult = this.state.jobs
+      .filter((x) => x.fixture.id === String(fixtureId) && x.result?.score)
+      .sort((a, b) => String(a.result.at || a.createdAt).localeCompare(String(b.result.at || b.createdAt)));
+    withResult.forEach((x, i) => (x.superseded = i < withResult.length - 1));
   }
 
   async retryJob(id) {
@@ -458,7 +476,8 @@ export class Automation {
       });
       await page.goto(`http://127.0.0.1:${this.port}/render.html?job=${job.id}`);
       const result = await done;
-      job.result = result;
+      job.result = { ...result, at: new Date().toISOString() };
+      this.refreshLatest(job.fixture.id);
       job.status = 'rendered';
       job.attempts = 0;
       await this.writeInfo(job);

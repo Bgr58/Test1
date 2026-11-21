@@ -1,11 +1,11 @@
 // Arayüz: takım arama, logo/renk, güç hesabı, önizleme ve video kaydı.
-import { Match } from './match.js';
+import { Match, findSeed } from './match.js';
 import { MODES, getMode } from './modes/index.js';
 import { renderFrame } from './render.js';
 import { Sound } from './audio.js';
 import { Recorder, pickMime } from './recorder.js';
 import { buildTeamAssets, loadImage, extractColors } from './assets.js';
-import { computeStrength, matchClub, fallbackList } from './strength.js';
+import { computeStrength, matchClub, fallbackList, outcomeProbs, pickOutcome, REALISTIC_INFLUENCE } from './strength.js';
 import { randomSeed } from './rng.js';
 import { LANGS, KEYS, makeTexts } from './i18n.js';
 import { slug, hashStr, weakColors, fixtureSubtitle, shortsText, makeThumbnail, ensureFonts } from './produce.js';
@@ -314,6 +314,12 @@ influence.addEventListener('input', () => {
   drawPoster();
 });
 ['#home', '#subtitle', '#mode', '#duration'].forEach((s) => $(s).addEventListener('input', drawPoster));
+// 🎯 Gerçekçi sonuç ayarı (hatırlanır)
+$('#realistic').checked = storage.get('realistic', true) !== false;
+$('#realistic').addEventListener('change', () => {
+  storage.set('realistic', $('#realistic').checked);
+  drawPoster();
+});
 
 // ---------------------------------------------------------------- dil ve metinler
 const langSel = $('#lang');
@@ -378,7 +384,11 @@ function showStrengthInfo(s) {
   const e = s.st.edge[0];
   const a = Math.round(pA * 100);
   const fav = Math.abs(e) < 0.02 ? 'Dengeli maç' : `${e > 0 ? s.A.name : s.B.name} hafif avantajlı`;
-  $('#strengthInfo').innerHTML = `🔒 <b>Arka plan güç dengesi</b> (videoda görünmez): ${escapeHtml(s.A.name)} %${a} · ${escapeHtml(s.B.name)} %${100 - a}
+  const pr = outcomeProbs(s.st.diff);
+  const real = $('#realistic').checked
+    ? `<br>🎯 Gerçekçi olasılıklar: <b>${escapeHtml(s.A.name)} %${Math.round(pr.home * 100)}</b> · Berabere %${Math.round(pr.draw * 100)} · <b>${escapeHtml(s.B.name)} %${Math.round(pr.away * 100)}</b>`
+    : '';
+  $('#strengthInfo').innerHTML = `🔒 <b>Arka plan güç dengesi</b> (videoda görünmez): ${escapeHtml(s.A.name)} %${a} · ${escapeHtml(s.B.name)} %${100 - a}${real}
     <br><small class="muted">${escapeHtml(fav)} · kaynak: ${escapeHtml(s.strengthSource)} · oyun avantajı ${(Math.abs(e) * 100).toFixed(0)}%</small>
     <div class="bar"><span style="width:${a}%;background:${s.A.color}"></span><span style="width:${100 - a}%;background:${s.B.color}"></span></div>`;
 }
@@ -391,7 +401,7 @@ function settings() {
   const B = teamInput(1);
   const st = computeStrength({
     eloA: A.elo, eloB: B.elo, valueA: A.value, valueB: B.value,
-    homeAdvantage: $('#home').checked, influence: +influence.value / 100,
+    homeAdvantage: $('#home').checked, influence: $('#realistic').checked ? REALISTIC_INFLUENCE : +influence.value / 100,
   });
   const usesValue = A.value > 0 && B.value > 0;
   const src = usesValue ? 'Elo + kadro değeri' : A.elo || B.elo ? 'ClubElo' : 'eşit güç';
@@ -501,8 +511,15 @@ async function playOnce({ record, modeId: forcedMode }) {
   const sel = $('#mode').value;
   const modeId = forcedMode || (sel === 'random' ? nextRandomMode() : sel);
   const seedText = $('#seed').value.trim();
-  const seed = seedText ? (/^\d+$/.test(seedText) ? +seedText : hashStr(seedText)) : randomSeed();
+  let seed = seedText ? (/^\d+$/.test(seedText) ? +seedText : hashStr(seedText)) : randomSeed();
   const assets = buildAssets(s);
+  if ($('#realistic').checked && !seedText) {
+    // 🎯 Gerçekçi: sonucu gerçek futbol olasılıklarıyla çek, onu kendiliğinden veren fizik maçını bul (görünmez, ~1 sn)
+    setStatus('🎯 Gerçekçi mod: maç hazırlanıyor…');
+    await new Promise((r) => setTimeout(r, 30));
+    const target = pickOutcome(outcomeProbs(s.st.diff), Math.random());
+    seed = findSeed({ teams: assets.teams, modeId, duration: s.duration, edge: s.st.edge, texts: assets.texts }, target, seed).seed;
+  }
   const opts = { subtitle: s.subtitle };
   await prepareMusic(snd, seed);
   const match = new Match({ teams: [assets.teams[0], assets.teams[1]], modeId, seed, duration: s.duration, edge: s.st.edge, audio: snd, texts: assets.texts });
@@ -677,7 +694,7 @@ const VERDICT = { exact: ['✅ Tam skor!', 'v-exact'], outcome: ['🟡 Sonuç tu
 
 // Tahmin karnesi (sadece sonucu belli olan maçlar; ertelenenler sayılmaz)
 function trackStats(jobs) {
-  const judged = jobs.filter((j) => ['exact', 'outcome', 'miss'].includes(j.verdict)).sort((a, b) => a.fixture.date.localeCompare(b.fixture.date));
+  const judged = jobs.filter((j) => ['exact', 'outcome', 'miss'].includes(j.verdict) && !j.superseded).sort((a, b) => a.fixture.date.localeCompare(b.fixture.date));
   const total = judged.length;
   const exact = judged.filter((j) => j.verdict === 'exact').length;
   const hits = exact + judged.filter((j) => j.verdict === 'outcome').length;
@@ -708,7 +725,7 @@ function daySummary(jobs, day) {
   const T = makeTexts(lang, overridesFor(lang));
   const st = trackStats(jobs);
   const list = jobs
-    .filter((j) => ['exact', 'outcome', 'miss'].includes(j.verdict) && dayKey(j.fixture.date) === day)
+    .filter((j) => ['exact', 'outcome', 'miss'].includes(j.verdict) && !j.superseded && dayKey(j.fixture.date) === day)
     .sort((a, b) => a.fixture.date.localeCompare(b.fixture.date));
   const key = { exact: 'sumExact', outcome: 'sumOutcome', miss: 'sumMiss' };
   const date = new Date(day + 'T12:00:00').toLocaleDateString(LANGS[lang]?.locale || 'en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -721,7 +738,7 @@ function daySummary(jobs, day) {
 
 function renderStats(q) {
   const st = trackStats(q.jobs);
-  const days = [...new Set(q.jobs.filter((j) => ['exact', 'outcome', 'miss'].includes(j.verdict)).map((j) => dayKey(j.fixture.date)))].sort().reverse();
+  const days = [...new Set(q.jobs.filter((j) => ['exact', 'outcome', 'miss'].includes(j.verdict) && !j.superseded).map((j) => dayKey(j.fixture.date)))].sort().reverse();
   const box = $('#qStats');
   if (!st.total && !st.waiting) {
     box.innerHTML = '<span class="muted">📊 Tahmin karnesi: maçlar bittikçe sonuçlar burada görünecek.</span>';
@@ -766,11 +783,11 @@ const MODE_OPTS = [['random', '🎲 Rastgele'], ['ring', 'Dönen Halka'], ['plin
 const fmtWhen = (iso) => new Date(iso).toLocaleString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const modeName = (id) => MODE_OPTS.find(([k]) => k === id)?.[1] || id;
 // Maç başına şans: güç etkisi (0 = tamamen şans). '' = paneldeki ortak "Güç etkisi" ayarı
-const LUCK_OPTS = [['0', '🎲 Tam şans'], ['0.2', 'Çoğu şans'], ['0.4', 'Dengeli'], ['0.6', 'Güç ağırlıklı'], ['0.8', 'Güçlü favori']];
-const luckName = (v) => LUCK_OPTS.find(([k]) => +k === +v)?.[1] || `güç %${Math.round(v * 100)}`;
+const LUCK_OPTS = [['real', '🎯 Gerçekçi'], ['0', '🎲 Tam şans'], ['0.2', 'Çoğu şans'], ['0.4', 'Dengeli'], ['0.6', 'Güç ağırlıklı'], ['0.8', 'Güçlü favori']];
+const luckName = (v) => LUCK_OPTS.find(([k]) => k !== 'real' && +k === +v)?.[1] || `güç %${Math.round(v * 100)}`;
 const luckSelect = (j) => `<select class="q-luck" title="Şans: sonuç ne kadar şansa, ne kadar takım gücüne bağlı">
   <option value="" ${j.luck == null ? 'selected' : ''}>Şans: ortak (%${influence.value})</option>
-  ${LUCK_OPTS.map(([k, v]) => `<option value="${k}" ${j.luck != null && +k === +j.luck ? 'selected' : ''}>${v}</option>`).join('')}
+  ${LUCK_OPTS.map(([k, v]) => `<option value="${k}" ${j.luck != null && (k === 'real' ? j.luck === 'real' : +k === +j.luck) ? 'selected' : ''}>${v}</option>`).join('')}
 </select>`;
 
 // Kuyruğun kendi dil ve süre ayarı (paneldeki önizleme dilinden bağımsız; varsayılan English)
@@ -837,7 +854,8 @@ function jobRow(j, draft) {
   const meta = [escapeHtml(f.league), fmtWhen(f.date)];
   if (!draft) {
     meta.push(escapeHtml(modeName(j.modeId)));
-    if (Number.isFinite(j.settings?.influence)) meta.push(escapeHtml(luckName(j.settings.influence)));
+    if (j.settings?.realistic) meta.push('🎯 Gerçekçi');
+    else if (Number.isFinite(j.settings?.influence)) meta.push(escapeHtml(luckName(j.settings.influence)));
     meta.push(escapeHtml(LANGS[j.settings?.lang]?.label || ''));
   }
   if (j.result) meta.push(`tahmin ${j.result.score[0]}-${j.result.score[1]}`);
@@ -854,7 +872,9 @@ function jobRow(j, draft) {
     if (j.status === 'scheduled') info = pub ? `Yayın: ${fmtWhen(pub)}${yt.thumbnail === false ? ' · kapak telefondan eklenmeli' : ''}` : 'Yayında';
     else if (j.status === 'ready' && pub && new Date(pub) > Date.now()) info = `Studio'da şu saate zamanla: <b>${fmtWhen(pub)}</b>`;
     else if (j.error) info = `<span class="err">${escapeHtml(j.error)}</span>`;
-    if (j.verdict) {
+    if (j.superseded) {
+      info = '<span class="muted">↺ Bu maç için daha yeni bir video üretildi; bu tahmin hesaba katılmaz (kanaldan sildiysen ✕ ile kaldır).</span>';
+    } else if (j.verdict) {
       const [vt, vc] = VERDICT[j.verdict];
       const fin = j.verdict === 'void' ? '' : `Sonuç <b>${j.actual.home}-${j.actual.away}</b> · `;
       info = `<span class="verdict ${vc}">${fin}${vt}</span>`;
@@ -876,7 +896,7 @@ function jobRow(j, draft) {
       busy ? '' : '<button data-act="del" title="Listeden çıkar">✕</button>',
     ].join('');
   }
-  return `<div class="q-row${draft ? ' draft' : ''}" data-id="${j.id}">
+  return `<div class="q-row${draft ? ' draft' : ''}${j.superseded ? ' superseded' : ''}" data-id="${j.id}">
     <div class="q-main">
       <div class="q-title">${logo(f.home)}${escapeHtml(f.home.name)} <span class="muted">–</span> ${logo(f.away)}${escapeHtml(f.away.name)}</div>
       <div class="q-meta">${meta.join(' · ')}</div>
@@ -951,7 +971,7 @@ $('#qDrafts').addEventListener('change', async (e) => {
       await api('POST', `/api/queue/${id}/mode`, { modeId: sel.value });
       $('#qAllMode').value = '';
     } else {
-      await api('POST', `/api/queue/${id}/luck`, { luck: sel.value === '' ? null : +sel.value });
+      await api('POST', `/api/queue/${id}/luck`, { luck: sel.value === '' ? null : sel.value === 'real' ? 'real' : +sel.value });
       $('#qAllLuck').value = 'keep';
     }
     loadQueue(true);
@@ -977,7 +997,7 @@ $('#qAllLuck').addEventListener('change', async () => {
   if (v === 'keep' || !lastQueue) return;
   const drafts = lastQueue.jobs.filter((j) => j.status === 'draft');
   try {
-    await Promise.all(drafts.map((j) => api('POST', `/api/queue/${j.id}/luck`, { luck: v === '' ? null : +v })));
+    await Promise.all(drafts.map((j) => api('POST', `/api/queue/${j.id}/luck`, { luck: v === '' ? null : v === 'real' ? 'real' : +v })));
     loadQueue(true);
   } catch (err) {
     setStatus('Hata: ' + err.message);
@@ -992,7 +1012,7 @@ $('#qStart').addEventListener('click', async () => {
   btn.disabled = true;
   try {
     const r = await api('POST', '/api/queue/start', {
-      settings: { lang, duration: +$('#qDuration').value, influence: +influence.value / 100, homeAdvantage: $('#home').checked, overrides: overridesFor(lang), music: musicSettings() },
+      settings: { lang, duration: +$('#qDuration').value, influence: +influence.value / 100, homeAdvantage: $('#home').checked, overrides: overridesFor(lang), music: musicSettings(), realistic: $('#realistic').checked },
     });
     setStatus(`${r.started} maç başlatıldı (${LANGS[lang].label}). Kuyruk arka planda işleniyor.`);
     loadQueue(true);
@@ -1010,7 +1030,7 @@ async function onRowAction(e) {
   const job = lastQueue?.jobs.find((j) => j.id === id);
   try {
     if (b.dataset.act === 'del') {
-      if (job?.status === 'scheduled' && !confirm('Maç listeden çıkarılacak. YouTube’a yüklenmiş video SİLİNMEZ (gerekirse Studio’dan sil). Devam?')) return;
+      if (job?.result && !confirm(`${job.fixture.home.name} – ${job.fixture.away.name} silinecek.\n\nKanaldan da silindiği varsayılır: karneden, günün özetinden ve otomatik açıklamadan çıkar. Bu maç için daha önce üretilmiş bir video varsa o tekrar geçerli olur.\n\n(Videoyu YouTube Studio’dan sen silmelisin.) Devam?`)) return;
       await api('DELETE', `/api/queue/${id}`);
     }
     if (b.dataset.act === 'unstart') await api('POST', `/api/queue/${id}/unstart`);

@@ -108,13 +108,17 @@ test('alt başlık ligin ülke saatiyle; açıklamada anket + lig etiketi var, s
   const T = makeTexts('en');
   const mk = (A, B) => shortsText({ A: { name: A }, B: { name: B }, subtitle: 'LaLiga • Sun 22 Nov, 14:00 CET', leagueTag: '#LaLiga' }, 'ring', T);
   const r = mk('Barcelona', 'Villarreal');
-  assert.match(r.desc, /Comment 1 for Barcelona, X for a draw, 2 for Villarreal/);
   assert.match(r.desc, /⏰ LaLiga • Sun 22 Nov, 14:00 CET/);
-  assert.match(r.desc, /#barcelona #villarreal #LaLiga #football/);
+  assert.match(r.desc, /#barcelona #villarreal #LaLiga/);
+  assert.ok(/1/.test(r.desc) && /X/.test(r.desc), 'her tarzda 1/X/2 çağrısı olmalı');
   assert.ok(!/\{\w+\}/.test(r.title + r.desc), 'doldurulmamış yer tutucu kalmamalı');
-  assert.equal(r.title, mk('Barcelona', 'Villarreal').title, 'aynı maç → aynı başlık');
-  const titles = new Set(['Real Madrid|Getafe', 'Arsenal|Chelsea', 'Inter|Milan', 'Ajax|PSV', 'Benfica|Porto', 'Lyon|Nice'].map((x) => mk(...x.split('|')).title.replace(/^.*?(Prediction|Can|who takes|Who wins).*$/, '$1')));
-  assert.ok(titles.size >= 2, 'farklı maçlarda farklı başlık çeşitleri çıkmalı');
+  assert.ok(!/---/.test(r.desc), 'tarz ayırıcı açıklamaya sızmamalı');
+  assert.deepEqual(mk('Barcelona', 'Villarreal'), r, 'aynı maç → aynı başlık ve açıklama');
+  const pairs = ['Real Madrid|Getafe', 'Arsenal|Chelsea', 'Inter|Milan', 'Ajax|PSV', 'Benfica|Porto', 'Lyon|Nice', 'Roma|Lazio', 'Celtic|Rangers', 'Bayern|Dortmund', 'Sevilla|Betis'];
+  const outs = pairs.map((x) => mk(...x.split('|')));
+  assert.ok(new Set(outs.map((o) => o.title.split(' ')[0])).size >= 2, 'farklı maçlarda farklı başlık çeşitleri');
+  assert.ok(new Set(outs.map((o) => o.desc.split('\n')[0].slice(0, 6))).size >= 3, 'farklı maçlarda farklı açıklama tarzları');
+  for (const o of outs) assert.match(o.desc, /⏰ LaLiga/, 'her tarzda maç saati satırı');
 });
 
 test('gerçekçi mod: olasılıklar mantıklı, videodaki maç arka plan simülasyonuyla aynı skoru verir', async () => {

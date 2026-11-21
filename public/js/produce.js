@@ -1,7 +1,8 @@
 // Panel (app.js) ve arka plan üretici (autorender.js) için ortak yardımcılar.
 import { buildTeamAssets } from './assets.js';
 import { renderThumbnail } from './render.js';
-import { LANGS } from './i18n.js';
+import { LANGS, pickVariant, pickBlock } from './i18n.js';
+export { pickVariant };
 
 // Canvas yazı tipleri ancak kullanılınca indirilir; ilk karenin doğru tiple çizilmesi için önceden yükle
 let fontsP = null;
@@ -61,19 +62,12 @@ export function fixtureSubtitle(m, lang) {
   return `${league} • ${day}, ${time} ${tzLabel(d, tz)}`.trim();
 }
 
-// Başlık şablonunda her satır bir çeşit: maça göre (sabit) biri seçilir, böylece her video aynı başlıkla çıkmaz
-export function pickVariant(text, key) {
-  const lines = String(text).split('\n').map((l) => l.trim()).filter(Boolean);
-  if (lines.length <= 1) return lines[0] || '';
-  return lines[hashStr(String(key)) % lines.length];
-}
-
 // Başlık/açıklamada skor YOK (izleyici videoyu izlesin). Eski şablonda {score} kalmışsa boş geçilir.
 export function shortsText(s, modeId, T) {
   const tags = ['#' + slug(s.A.name).toLowerCase(), '#' + slug(s.B.name).toLowerCase()].join(' ');
   const vars = { home: s.A.name, away: s.B.name, score: '', mode: T.t('mode.' + modeId), subtitle: s.subtitle || '', tags, leagueTag: s.leagueTag || '' };
   const title = pickVariant(T.t('ytTitle', vars), `${s.A.name}|${s.B.name}|${s.subtitle}`);
-  const desc = T.t('ytDesc', vars)
+  const desc = pickBlock(T.t('ytDesc', vars), `${s.A.name}|${s.B.name}|${s.subtitle}|desc`)
     .split('\n')
     .map((l) => l.replace(/\s{2,}/g, ' ').trim())
     .filter((l) => l && !/^⏰\s*$/.test(l))

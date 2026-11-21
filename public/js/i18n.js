@@ -30,9 +30,9 @@ export const KEYS = [
   { key: 'mode.race.hint', label: 'Açıklama: Engelli Parkur', group: 'Modlar' },
   { key: 'thumbTitle', label: 'Kapak: büyük soru', group: 'Kapak görseli' },
   { key: 'thumbCta', label: 'Kapak: alt çağrı', group: 'Kapak görseli' },
-  { key: 'postExact', label: 'Tam skor tuttuğunda ({home} {away} {pred} {final})', group: 'Tahmin takibi' },
-  { key: 'postOutcome', label: 'Sadece sonuç tuttuğunda ({home} {away} {pred} {final})', group: 'Tahmin takibi' },
-  { key: 'postMiss', label: 'Tutmadığında ({home} {away} {pred} {final})', group: 'Tahmin takibi' },
+  { key: 'postExact', label: 'Tam skor tuttuğunda — her satır bir tarz ({home} {away} {pred} {final})', group: 'Tahmin takibi', multiline: true },
+  { key: 'postOutcome', label: 'Sadece sonuç tuttuğunda — her satır bir tarz ({home} {away} {pred} {final})', group: 'Tahmin takibi', multiline: true },
+  { key: 'postMiss', label: 'Tutmadığında — her satır bir tarz ({home} {away} {pred} {final})', group: 'Tahmin takibi', multiline: true },
   { key: 'postRecord', label: 'Karne satırı ({hits} {total} {pct} {exact})', group: 'Tahmin takibi' },
   { key: 'sumTitle', label: 'Günün özeti: başlık ({date})', group: 'Tahmin takibi' },
   { key: 'sumExact', label: 'Günün özeti: tam skor satırı ({home} {away} {final} {pred})', group: 'Tahmin takibi' },
@@ -40,7 +40,7 @@ export const KEYS = [
   { key: 'sumMiss', label: 'Günün özeti: tutmadı satırı ({home} {away} {final} {pred})', group: 'Tahmin takibi' },
   { key: 'sumRecord', label: 'Günün özeti: karne ({hits} {total} {pct} {exact} {dayHits} {dayTotal})', group: 'Tahmin takibi', multiline: true },
   { key: 'ytTitle', label: 'YouTube başlığı — her satır bir çeşit, maça göre biri seçilir ({home} {away} {mode}). Skor yazmıyoruz, izleyen merak etsin.', group: 'YouTube', multiline: true },
-  { key: 'ytDesc', label: 'YouTube açıklaması ({home} {away} {mode} {subtitle} = lig + maç saati, {tags} = takım etiketleri, {leagueTag} = lig etiketi)', group: 'YouTube', multiline: true },
+  { key: 'ytDesc', label: 'YouTube açıklaması — "---" satırıyla ayrılan her blok bir tarz ({home} {away} {mode} {subtitle} = lig + maç saati, {tags} = takım etiketleri, {leagueTag} = lig etiketi)', group: 'YouTube', multiline: true },
 ];
 
 export const LANGS = {
@@ -57,9 +57,9 @@ export const LANGS = {
       'mode.football': 'Mini Futbol', 'mode.football.hint': 'Logolar sahada, top kaleye!',
       'mode.race': 'Engelli Parkur', 'mode.race.hint': 'Engelleri aş, kaleciyi geç!',
       ytTitle: "{home} - {away} Skor Tahmini ⚽ Kim kazanır? #shorts\n{home} mi {away} mı? 🔮 Top karar verdi #shorts\n{home} - {away}: Bu maçı kim alır? 🎲 #shorts\n{home} vs {away} tahmini: sence kim kazanır? ⚽ #shorts",
-      ytDesc: "{home} - {away} maçını kim kazanır? 🤔 Fizik oyunumuz (\"{mode}\") kararını verdi, skoru görmek için sonuna kadar izle! 👀\n⏰ {subtitle}\n💬 Yorumlara {home} için 1, beraberlik için X, {away} için 2 yaz, tahmin ettiğin skoru da ekle!\n🔔 Her büyük maçtan önce yeni tahmin için takip et.\n{tags} {leagueTag} #maçtahmini #skortahmini #futbol #shorts",
-      postExact: "✅ TAM İSABET! {home} - {away} için {pred} dedik, maç {final} bitti! 🔮", postOutcome: "✅ Bildik! {home} - {away} için {pred} dedik, maç {final} bitti. Kazananı doğru tahmin ettik! ⚽",
-      postMiss: "❌ Bu sefer olmadı. {home} - {away} için {pred} dedik, maç {final} bitti. 😅", postRecord: "📊 Karnemiz: {total} maçta {hits} doğru sonuç (%{pct}), {exact} tam skor. Sıradaki tahmin yakında! 🔔",
+      ytDesc: "{home} - {away} maçını kim kazanır? 🤔 Fizik oyunumuz (\"{mode}\") kararını verdi, skoru görmek için sonuna kadar izle! 👀\n⏰ {subtitle}\n💬 Yorumlara {home} için 1, beraberlik için X, {away} için 2 yaz, tahmin ettiğin skoru da ekle!\n🔔 Her büyük maçtan önce yeni tahmin için takip et.\n{tags} {leagueTag} #maçtahmini #skortahmini #futbol #shorts\n---\n🚨 MAÇ GÜNÜ: {home} - {away}!\nFizik oyunumuz (\"{mode}\") maçı oynadı bile. Skor videonun sonunda, sakın atlama! 😤\n⏰ {subtitle}\n👇 1 = {home} · X = beraberlik · 2 = {away}. Senin tahminin ne?\n🔔 Hiçbir tahmini kaçırmamak için takip et.\n{tags} {leagueTag} #maçtahmini #futbol #shorts\n---\n🔮 {home} - {away} skor tahmini.\nKararı fiziğe bıraktık: iki takım, bir oyun (\"{mode}\"), takım güçleri hesapta, biraz da şans.\n⏰ {subtitle}\n📊 Sonuca katılıyor musun? Yorumlara 1, X ya da 2 ve kendi skor tahminini yaz.\n{tags} {leagueTag} #maçtahmini #skortahmini #futbol #shorts\n---\n{home} mi {away} mı? ⚽ Top kararını verdi. Sonuna kadar izle! 👀\n⏰ {subtitle}\n💬 1 / X / 2 👇\n{tags} {leagueTag} #maçtahmini #futbol #shorts\n---\nTahminimizi geçebilir misin? 😏 {home} - {away} maçını fizik oyunumuz (\"{mode}\") oynadı.\n⏰ {subtitle}\n🏆 Maç başlamadan tam skor tahminini yorumlara yaz, maçtan sonra kimin bildiğine bakacağız!\n🔔 Günlük tahminler için takip et.\n{tags} {leagueTag} #maçtahmini #futbol #shorts",
+      postExact: "✅ TAM İSABET! {home} - {away} için {pred} dedik, maç {final} bitti! 🔮\n🎯 SKORU BİLDİK! {home} {final} {away}, fizik oyunumuz da tam olarak {pred} demişti! 🤯\n🔮 Kalemize kadar bildik: {home} {pred} {away}. Maç {final} bitti! ✅\nFizik yalan söylemez! 😎 {pred} dedik, {final} bitti. {home} - {away}, tam isabet ✅\n✅ {pred} dedik, {final} oldu! {home} - {away} maçında kusursuz tahmin 🎯", postOutcome: "✅ Bildik! {home} - {away} için {pred} dedik, maç {final} bitti. Kazananı doğru tahmin ettik! ⚽\n🟡 Sonuç doğru, skor farklı: {pred} dedik, maç {final} bitti ({home} - {away}). Az kalsın! 😅\n✅ Kazananı bildik! {home} - {away} {final} bitti, bizim tahminimiz {pred} idi. ⚽\n👍 Sonucu doğru bildik: {home} {final} {away} (tahminimiz: {pred}).\n⚽ {home} - {away}: sonuç doğru, skor farklı. {final} oldu, biz {pred} demiştik. Yine de sayılır! ✅",
+      postMiss: "❌ Bu sefer olmadı. {home} - {away} için {pred} dedik, maç {final} bitti. 😅\n😬 Futbol bu: {pred} dedik, {home} - {away} {final} bitti.\n❌ Top bu sefer yanıldı! {pred} yerine {final} ({home} - {away}). Rövanş bir sonraki maçta 💪\n🙈 Günümüzde değiliz: {home} {final} {away}, biz {pred} demiştik. Yorumlarda bilen var mı?\n❌ Bizim tahminimiz {pred}, gerçek {final}. {home} - {away}, bu turu futbol kazandı! ⚽", postRecord: "📊 Karnemiz: {total} maçta {hits} doğru sonuç (%{pct}), {exact} tam skor. Sıradaki tahmin yakında! 🔔",
       sumTitle: "📊 {date} tahminlerimiz:", sumExact: "✅ {home} {final} {away} (tam skor!)",
       sumOutcome: "🟡 {home} {final} {away} (sonuç doğru, {pred} demiştik)", sumMiss: "❌ {home} {final} {away} ({pred} demiştik)",
       sumRecord: "Gün: {dayHits}/{dayTotal} doğru · Genel karne: {hits}/{total} (%{pct}), {exact} tam skor 🔮\nSıradaki maçların tahmini için takipte kal! 🔔",
@@ -79,9 +79,9 @@ export const LANGS = {
       'mode.football': 'Mini Football', 'mode.football.hint': 'Crests on the pitch, ball to the net!',
       'mode.race': 'Obstacle Course', 'mode.race.hint': 'Beat the obstacles, beat the keeper!',
       ytTitle: "{home} vs {away} Prediction ⚽ Who wins? #shorts\nCan {away} beat {home}? 🔮 The ball decides #shorts\n{home} vs {away}: who takes it? 🎲 Score prediction #shorts\nWho wins {home} vs {away}? ⚽ Watch till the end #shorts",
-      ytDesc: "Who wins {home} vs {away}? 🤔 Our physics game (\"{mode}\") has made its call. Watch till the end to see the score! 👀\n⏰ {subtitle}\n💬 Comment 1 for {home}, X for a draw, 2 for {away}, and drop your exact score!\n🔔 Follow for a new prediction before every big match.\n{tags} {leagueTag} #football #soccer #prediction #scoreprediction #shorts",
-      postExact: "✅ NAILED IT! We predicted {home} {pred} {away} and it finished {final}! 🔮", postOutcome: "✅ Called it! We predicted {home} {pred} {away}, final score {final}. Right result! ⚽",
-      postMiss: "❌ Missed this one. We predicted {home} {pred} {away}, but it ended {final}. 😅", postRecord: "📊 Our record: {hits}/{total} results right ({pct}%), {exact} exact scores. Next prediction coming soon! 🔔",
+      ytDesc: "Who wins {home} vs {away}? 🤔 Our physics game (\"{mode}\") has made its call. Watch till the end to see the score! 👀\n⏰ {subtitle}\n💬 Comment 1 for {home}, X for a draw, 2 for {away}, and drop your exact score!\n🔔 Follow for a new prediction before every big match.\n{tags} {leagueTag} #football #soccer #prediction #scoreprediction #shorts\n---\n🚨 MATCHDAY: {home} vs {away}!\nOur physics game (\"{mode}\") just played it out. The final score is at the end, no skipping! 😤\n⏰ {subtitle}\n👇 1 = {home} · X = draw · 2 = {away}. What's your call?\n🔔 Follow so you never miss a prediction.\n{tags} {leagueTag} #football #soccer #prediction #shorts\n---\n🔮 {home} vs {away}: score prediction.\nWe let physics decide: two teams, one game (\"{mode}\"), team strength built in, plus a little luck.\n⏰ {subtitle}\n📊 Agree with the result? Comment 1, X or 2 and your exact score.\n{tags} {leagueTag} #football #soccer #prediction #scoreprediction #shorts\n---\n{home} or {away}? ⚽ The ball has decided. Watch till the end! 👀\n⏰ {subtitle}\n💬 1 / X / 2 👇\n{tags} {leagueTag} #football #soccer #shorts\n---\nThink you can beat our prediction? 😏 {home} vs {away}, played out by our physics game (\"{mode}\").\n⏰ {subtitle}\n🏆 Comment your exact score before kick-off. We'll check who got it right after the match!\n🔔 Follow for daily predictions.\n{tags} {leagueTag} #football #soccer #prediction #shorts",
+      postExact: "✅ NAILED IT! We predicted {home} {pred} {away} and it finished {final}! 🔮\n🎯 EXACT SCORE! {home} {final} {away}, exactly what our physics game said ({pred})! 🤯\n🔮 Called it to the goal: {home} {pred} {away}. Final score {final}! ✅\nPhysics doesn't lie! 😎 We said {pred}, it ended {final}. {home} vs {away}, nailed it ✅\n✅ {pred} predicted, {final} delivered! {home} vs {away}, perfect call 🎯", postOutcome: "✅ Called it! We predicted {home} {pred} {away}, final score {final}. Right result! ⚽\n🟡 Right result, different score: we said {pred}, it ended {final} ({home} vs {away}). Close enough? 😅\n✅ Winner spotted! {home} vs {away} finished {final}, we had {pred}. ⚽\n👍 Got the result right: {home} {final} {away} (our prediction: {pred}).\n⚽ {home} vs {away}: right outcome, different score. {final} vs our {pred}. Still counts! ✅",
+      postMiss: "❌ Missed this one. We predicted {home} {pred} {away}, but it ended {final}. 😅\n😬 Football is football: we said {pred}, {home} vs {away} ended {final}.\n❌ The ball got it wrong this time! {final} instead of {pred} ({home} vs {away}). Revenge next match 💪\n🙈 Not our day: {home} {final} {away}, we predicted {pred}. Did anyone in the comments get it right?\n❌ {pred} was our call, {final} was the reality. {home} vs {away}, you win this round, football! ⚽", postRecord: "📊 Our record: {hits}/{total} results right ({pct}%), {exact} exact scores. Next prediction coming soon! 🔔",
       sumTitle: "📊 Our predictions for {date}:", sumExact: "✅ {home} {final} {away} (exact score!)",
       sumOutcome: "🟡 {home} {final} {away} (right result, we said {pred})", sumMiss: "❌ {home} {final} {away} (we said {pred})",
       sumRecord: "Matchday: {dayHits}/{dayTotal} right · Overall record: {hits}/{total} ({pct}%), {exact} exact scores 🔮\nFollow for the next predictions! 🔔",
@@ -199,6 +199,24 @@ export const LANGS = {
     },
   },
 };
+
+// Çeşitler: tek satırlık metinlerde her SATIR, açıklamada "---" satırıyla ayrılan her BLOK ayrı bir tarzdır.
+// Anahtara (ör. maç/video) göre sabit seçilir: aynı video hep aynı tarzı alır, farklı videolar farklı tarzlar.
+function hash32(str) {
+  let h = 2166136261;
+  for (const ch of String(str)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return h >>> 0;
+}
+export function pickVariant(text, key) {
+  const lines = String(text).split('\n').map((l) => l.trim()).filter(Boolean);
+  if (lines.length <= 1) return lines[0] || '';
+  return lines[hash32(key) % lines.length];
+}
+export function pickBlock(text, key) {
+  const blocks = String(text).split(/\n\s*-{3,}\s*\n/).map((b) => b.trim()).filter(Boolean);
+  if (blocks.length <= 1) return blocks[0] || '';
+  return blocks[hash32(key) % blocks.length];
+}
 
 export function fill(str, vars = {}) {
   return String(str ?? '').replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));

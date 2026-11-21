@@ -294,7 +294,11 @@ test('maç sonunda açıklama güncellenir: izin yoksa beklenir, link eklenince 
     await a.updateDescriptions();
     assert.equal(puts.length, 1);
     const d = videos.VIDabc12345.description;
-    assert.match(d, /^✅ NAILED IT! We predicted Barcelona 2-1 Villarreal and it finished 2-1! 🔮\n📊 Our record: 1\/1 results right \(100%\), 1 exact scores/);
+    const { LANGS } = await import('../public/js/i18n.js');
+    const firstLine = d.split('\n')[0];
+    const variants = LANGS.en.strings.postExact.split('\n').map((v) => v.replaceAll('{home}', 'Barcelona').replaceAll('{away}', 'Villarreal').replaceAll('{pred}', '2-1').replaceAll('{final}', '2-1'));
+    assert.ok(variants.includes(firstLine), 'ilk satır tam skor tarzlarından biri olmalı: ' + firstLine);
+    assert.match(d.split('\n')[1], /^📊 Our record: 1\/1 results right \(100%\), 1 exact scores/);
     assert.match(d, /\n\nWho wins\? 🤔\n#barcelona$/, 'eski açıklama altta korunmalı');
     assert.equal(puts[0].snippet.title, 'Barcelona vs Villarreal Prediction ⚽ #shorts');
     assert.deepEqual(puts[0].snippet.tags, ['x']);
@@ -379,7 +383,7 @@ test('araç kapalıyken biten maçlar: açılınca sonuç alınır; otomatik aç
     await b.updateSettings({ autoDesc: true });
     await new Promise((r) => setTimeout(r, 50));
     assert.equal(updated.length, 1, 'açılınca hemen güncellenmeli');
-    assert.match(updated[0][1], /^✅ NAILED IT!.*\n📊 .*\n\neski$/s);
+    assert.match(updated[0][1], /^[^\n]*1-1[^\n]*\n📊 [^\n]*1\/1[^\n]*\n\neski$/, 'hangi tarz seçilirse seçilsin: sonuç satırı + karne + eski açıklama');
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -7,7 +7,7 @@ import { Recorder, pickMime } from './recorder.js';
 import { buildTeamAssets, loadImage, extractColors } from './assets.js';
 import { computeStrength, matchClub, fallbackList, outcomeProbs, pickOutcome, REALISTIC_INFLUENCE } from './strength.js';
 import { randomSeed } from './rng.js';
-import { LANGS, KEYS, makeTexts } from './i18n.js';
+import { LANGS, KEYS, makeTexts, pickVariant } from './i18n.js';
 import { slug, hashStr, weakColors, fixtureSubtitle, shortsText, makeThumbnail, ensureFonts } from './produce.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -36,6 +36,15 @@ const storage = {
     try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* yoksay */ }
   },
 };
+
+// ---------------------------------------------------------------- sekmeler
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.page').forEach((pg) => pg.classList.toggle('active', pg.dataset.page === name));
+  storage.set('tab', name);
+  if (name === 'single') drawPoster();
+}
+document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
 // ---------------------------------------------------------------- takım verisi
 function teamInput(i) {
@@ -298,8 +307,9 @@ fxList.addEventListener('click', async (e) => {
   fxList.querySelectorAll('.fx-item').forEach((x) => x.classList.toggle('active', x === b));
   setFixtureSubtitle(m);
   const side = (t) => ({ ...t, league: m.league, national: m.national });
+  showTab('single');
   await Promise.all([selectTeam(0, side(m.home)), selectTeam(1, side(m.away))]);
-  setStatus(`Seçildi: ${m.home.name} - ${m.away.name}`);
+  setStatus(`Tek video için yüklendi: ${m.home.name} - ${m.away.name}`);
 });
 fxDate.addEventListener('change', loadFixtures);
 fxComp.addEventListener('change', loadFixtures);
@@ -448,7 +458,7 @@ function drawPoster() {
 
 // ---------------------------------------------------------------- müzik
 // Panel ve kuyruk aynı müzik ayarını kullanır (iki seçim kutusu senkron)
-const musicSels = [$('#musicMode'), $('#qMusic')];
+const musicSels = [$('#musicMode')];
 const musicVol = $('#musicVol');
 function setMusicMode(v) {
   for (const el of musicSels) el.value = v;
@@ -714,14 +724,14 @@ function postText(j, stats) {
   const f = j.fixture;
   const vars = { home: f.home.name, away: f.away.name, pred: j.result.score.join('-'), final: `${j.actual.home}-${j.actual.away}` };
   const key = { exact: 'postExact', outcome: 'postOutcome', miss: 'postMiss' }[j.verdict];
-  return `${T.t(key, vars)}\n${T.t('postRecord', { hits: stats.hits, total: stats.total, pct: stats.pct, exact: stats.exact })}`;
+  return `${pickVariant(T.t(key, vars), j.id)}\n${T.t('postRecord', { hits: stats.hits, total: stats.total, pct: stats.pct, exact: stats.exact })}`;
 }
 
 const dayKey = (iso) => localDay(new Date(iso));
 
 // Günün özeti: seçilen gündeki sonucu belli maçlar + genel karne (kuyruğun dilinde)
 function daySummary(jobs, day) {
-  const lang = qLang.value;
+  const lang = langSel.value;
   const T = makeTexts(lang, overridesFor(lang));
   const st = trackStats(jobs);
   const list = jobs
@@ -748,16 +758,21 @@ function renderStats(q) {
   const modes = Object.entries(st.byMode)
     .map(([m, v]) => `${escapeHtml(modeName(m))} ${v.hits}/${v.total}`)
     .join(' · ');
-  box.innerHTML = `<div class="row wrap stats-row">
-      <b>📊 Tahmin karnesi</b>
-      <span class="stat"><b>${st.total}</b> maç</span>
-      <span class="stat">Sonuç <b>%${st.pct}</b> (${st.hits})</span>
-      <span class="stat">Tam skor <b>${st.exact}</b></span>
-      ${st.last.length ? `<span class="stat" title="Son maçlar">Son: ${st.last.map((j) => icon[j.verdict]).join('')}</span>` : ''}
-      ${st.waiting ? `<span class="muted">${st.waiting} maç sonucu bekleniyor</span>` : ''}
-      ${days.length ? `<select id="qDay" title="Özet günü">${days.map((d) => `<option value="${d}">${new Date(d + 'T12:00:00').toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short' })}</option>`).join('')}</select>
-      <button id="qSummary" class="secondary" title="Seçilen günün tüm sonuçlarını ve karneyi kopyala">📅 Günün özeti</button>` : ''}
-      <button id="qCheck" class="secondary" title="Biten maçların sonucunu şimdi kontrol et">🔄</button>
+  const tile = (val, label, cls = '') => `<div class="tile ${cls}"><div class="tile-val">${val}</div><div class="tile-lbl">${label}</div></div>`;
+  box.innerHTML = `<div class="stats-head">
+      <h2>📊 Tahmin karnesi</h2>
+      <div class="stats-actions">
+        ${days.length ? `<select id="qDay" title="Özet günü">${days.map((d) => `<option value="${d}">${new Date(d + 'T12:00:00').toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short' })}</option>`).join('')}</select>
+        <button id="qSummary" class="primary" title="Seçilen günün tüm sonuçlarını ve karneyi kopyala">📅 Günün özetini kopyala</button>` : ''}
+        <button id="qCheck" class="secondary" title="Biten maçların sonucunu şimdi kontrol et">🔄 Kontrol et</button>
+      </div>
+    </div>
+    <div class="tiles">
+      ${tile(st.total, 'maç')}
+      ${tile(`%${st.pct}`, `doğru sonuç (${st.hits})`, 'ok')}
+      ${tile(st.exact, 'tam skor', 'gold')}
+      ${st.last.length ? tile(st.last.map((j) => icon[j.verdict]).join(''), 'son maçlar', 'wide') : ''}
+      ${st.waiting ? tile(st.waiting, 'sonuç bekleniyor', 'dim') : ''}
     </div>
     ${modes ? `<div class="muted small">Formata göre doğru sonuç: ${modes}</div>` : ''}`;
   $('#qSummary')?.addEventListener('click', async () => {
@@ -790,13 +805,7 @@ const luckSelect = (j) => `<select class="q-luck" title="Şans: sonuç ne kadar 
   ${LUCK_OPTS.map(([k, v]) => `<option value="${k}" ${j.luck != null && (k === 'real' ? j.luck === 'real' : +k === +j.luck) ? 'selected' : ''}>${v}</option>`).join('')}
 </select>`;
 
-// Kuyruğun kendi dil ve süre ayarı (paneldeki önizleme dilinden bağımsız; varsayılan English)
-const qLang = $('#qLang');
-qLang.innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
-qLang.value = LANGS[storage.get('queueLang', 'en')] ? storage.get('queueLang', 'en') : 'en';
-qLang.addEventListener('change', () => storage.set('queueLang', qLang.value));
-$('#qDuration').value = String(storage.get('queueDuration', 45));
-$('#qDuration').addEventListener('change', () => storage.set('queueDuration', +$('#qDuration').value));
+
 
 function renderYoutubeBox(yt, settings) {
   const box = $('#qYoutube');
@@ -907,6 +916,18 @@ function jobRow(j, draft) {
   </div>`;
 }
 
+// "Seçilen maçlar" başlığında aktif ayarların tek satır özeti (değiştirmek için Ayarlar sekmesi)
+function renderDefaults(qs = lastQueue?.settings) {
+  const music = { synth: 'dahili müzik', file: 'klasörden müzik', off: 'müzik yok' }[$('#musicMode').value];
+  const parts = [LANGS[langSel.value]?.label, `${$('#duration').value} sn`, music, qs?.uploadMode === 'youtube' ? 'YouTube’a otomatik' : 'klasöre kaydet'];
+  if (qs) parts.push(`yayın ${qs.leadMinutes} dk önce`);
+  $('#qDefaults').innerHTML = `${parts.map(escapeHtml).join(' · ')} · <a href="#" id="qDefaultsEdit">⚙️ değiştir</a>`;
+  $('#qDefaultsEdit').onclick = (e) => {
+    e.preventDefault();
+    showTab('settings');
+  };
+}
+
 function renderQueue(q) {
   lastQueue = q;
   fixtureJobs = new Map(q.jobs.filter((j) => j.status !== 'failed' && j.status !== 'manual').map((j) => [j.fixture.id, j]));
@@ -914,14 +935,25 @@ function renderQueue(q) {
   $('#qUpload').value = q.settings.uploadMode;
   if (document.activeElement !== $('#qLead')) $('#qLead').value = q.settings.leadMinutes;
   const drafts = q.jobs.filter((j) => j.status === 'draft');
-  const others = q.jobs.filter((j) => j.status !== 'draft');
+  const now = Date.now();
+  // maçı başlamış ve tahmini olanlar "Sonuçlar" sekmesinde, gerisi "Kuyruk"ta
+  const isResult = (j) => !!j.result && new Date(j.fixture.date).getTime() <= now;
+  const others = q.jobs.filter((j) => j.status !== 'draft' && !isResult(j));
+  const finished = q.jobs.filter((j) => j.status !== 'draft' && isResult(j)).sort((a, b) => b.fixture.date.localeCompare(a.fixture.date));
+  $('#qResults').innerHTML = finished.length
+    ? finished.map((j) => jobRow(j, false)).join('')
+    : '<div class="empty">Henüz oynanmış maç yok. Videoları ürettiğin maçlar bitince sonuçlar burada görünür.</div>';
+  const waiting = finished.filter((j) => !j.verdict).length;
+  $('#tabResultsBadge').textContent = waiting ? String(waiting) : '';
+  $('#tabMatchesBadge').textContent = drafts.length + others.filter((j) => ['queued', 'rendering', 'uploading'].includes(j.status)).length || '';
   $('#qDrafts').innerHTML = drafts.length
     ? drafts.map((j) => jobRow(j, true)).join('')
-    : '<div class="muted">Henüz maç seçmedin. Yukarıdaki fikstürde maçların yanındaki ＋ ile ekle.</div>';
+    : '<div class="empty">Soldaki listeden maçların yanındaki ＋ ile seç.</div>';
   const start = $('#qStart');
   start.disabled = !drafts.length;
   start.textContent = drafts.length ? `▶ Seçilen ${drafts.length} maçı başlat` : '▶ Başlat';
-  $('#qList').innerHTML = others.length ? others.map((j) => jobRow(j, false)).join('') : '<div class="muted">Henüz başlatılmış maç yok.</div>';
+  $('#qList').innerHTML = others.length ? others.map((j) => jobRow(j, false)).join('') : '<div class="empty">Kuyruk boş.</div>';
+  renderDefaults(q.settings);
 }
 
 async function loadQueue(force = false) {
@@ -1007,12 +1039,12 @@ $('#qAllLuck').addEventListener('change', async () => {
 influence.addEventListener('change', () => lastQueue && renderQueue(lastQueue));
 
 $('#qStart').addEventListener('click', async () => {
-  const lang = qLang.value;
+  const lang = langSel.value;
   const btn = $('#qStart');
   btn.disabled = true;
   try {
     const r = await api('POST', '/api/queue/start', {
-      settings: { lang, duration: +$('#qDuration').value, influence: +influence.value / 100, homeAdvantage: $('#home').checked, overrides: overridesFor(lang), music: musicSettings(), realistic: $('#realistic').checked },
+      settings: { lang, duration: +$('#duration').value, influence: +influence.value / 100, homeAdvantage: $('#home').checked, overrides: overridesFor(lang), music: musicSettings(), realistic: $('#realistic').checked },
     });
     setStatus(`${r.started} maç başlatıldı (${LANGS[lang].label}). Kuyruk arka planda işleniyor.`);
     loadQueue(true);
@@ -1061,6 +1093,7 @@ async function onRowAction(e) {
   }
 }
 $('#qList').addEventListener('click', onRowAction);
+$('#qResults').addEventListener('click', onRowAction);
 $('#qDrafts').addEventListener('click', onRowAction);
 const saveQueueSettings = () => api('POST', '/api/queue/settings', { uploadMode: $('#qUpload').value, leadMinutes: +$('#qLead').value }).then(() => loadQueue(true)).catch((e) => setStatus('Hata: ' + e.message));
 $('#qUpload').addEventListener('change', saveQueueSettings);
@@ -1085,3 +1118,7 @@ loadCompetitions().then(loadFixtures);
     } catch { /* çevrimdışı: varsayılan renklerle devam */ }
   }
 })();
+
+// ayar değişince "Seçilen maçlar" başlığındaki özet güncellensin; son açık sekmeye dön
+['#lang', '#duration', '#musicMode'].forEach((id) => $(id).addEventListener('change', () => renderDefaults()));
+showTab(['matches', 'results', 'single', 'settings'].includes(storage.get('tab', 'matches')) ? storage.get('tab', 'matches') : 'matches');

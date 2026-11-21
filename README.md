@@ -51,6 +51,21 @@ Turnuva eklemek için `data.js` içindeki `COMPETITIONS` listesine ESPN lig kodu
 > Büyük kulüplerin forma renkleri `data.js` içindeki `CLUB_COLORS` tablosundan gelir.
 > Diğer takımlarda ESPN rengi kullanılır, o da anlamsızsa renk logodan çıkarılır.
 
+## Ekranlar (sekmeler)
+
+| Sekme | Ne için |
+| --- | --- |
+| **📅 Maçlar** | Günlük iş: solda günün maçları (＋ ile seç), sağda seçilenler (format + şans), **Başlat** ve kuyruk |
+| **📊 Sonuçlar** | Tahmin karnesi, günün özeti, biten maçlar (📋 paylaşım metni, 🔗 YouTube linki, ✕ sil) |
+| **🎬 Tek video** | Elle takım seçip önizleme/kayıt, kapak indirme (fikstürde maçın adına tıklayınca da burası açılır) |
+| **⚙️ Ayarlar** | Video dili, süre, gerçekçi mod, müzik, yükleme/yayın zamanı, YouTube bağlantısı, metin düzenleyici |
+
+Ayarlar tek yerde; kuyruk ve tek video aynı ayarları kullanır.
+
+**Farklı yazım tarzları:** Video açıklamasında ve maç sonu metinlerinde (✅ / 🟡 / ❌) İngilizce ve Türkçe 5'er tarz var
+(soru, coşkulu, analizci, kısa-vurucu, taraftar meydan okuması). Her videoda biri rastgele seçilir, aynı video hep aynı tarzı kullanır.
+Metin düzenleyicide başlık ve maç sonu metinlerinde her satır, açıklamada `---` satırıyla ayrılan her blok bir tarzdır.
+
 ## Kullanım
 
 1. **📅 Günün maçları:** Tarihi seç (‹ › ile gün değiştir), istersen turnuvayı filtrele ve bir maça tıkla.

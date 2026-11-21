@@ -11,39 +11,43 @@
 </head>
 <body>
   <header class="top">
-    <h1>⚽ Maç Tahmin Shorts</h1>
-    <p>Takımları yaz, oyun formatını seç, fizik oyunu skoru belirlesin. 1080×1920 video olarak indir.</p>
+    <div class="brand">⚽ Maç Tahmin Shorts</div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="matches">📅 Maçlar <span class="badge" id="tabMatchesBadge"></span></button>
+      <button class="tab" data-tab="results">📊 Sonuçlar <span class="badge" id="tabResultsBadge"></span></button>
+      <button class="tab" data-tab="single">🎬 Tek video</button>
+      <button class="tab" data-tab="settings">⚙️ Ayarlar</button>
+    </nav>
   </header>
+  <p id="status" class="statusbar" aria-live="polite"></p>
 
-  <main class="layout">
-    <section class="panel">
-      <section class="fixtures">
-        <div class="fx-head">
-          <h2>📅 Günün maçları</h2>
-          <div class="row fx-controls">
-            <button id="fxPrev" title="Önceki gün">‹</button>
-            <input id="fxDate" type="date" />
-            <button id="fxNext" title="Sonraki gün">›</button>
-            <button id="fxToday">Bugün</button>
-            <select id="fxComp"><option value="">Tüm turnuvalar</option></select>
+  <main>
+    <!-- ============================================================ 📅 MAÇLAR (günlük iş) -->
+    <section class="page active" data-page="matches">
+      <div class="cols">
+        <section class="card fixtures">
+          <div class="card-head">
+            <h2>Günün maçları</h2>
+            <div class="row fx-controls">
+              <button id="fxPrev" title="Önceki gün">‹</button>
+              <input id="fxDate" type="date" />
+              <button id="fxNext" title="Sonraki gün">›</button>
+              <button id="fxToday">Bugün</button>
+            </div>
           </div>
-        </div>
-        <div id="fxList" class="fx-list"></div>
-        <small class="muted">Bir maça tıkla: iki takım, logolar, renkler, güç ve alt başlık otomatik dolar. ＋ ile otomatik kuyruğa ekle.</small>
-      </section>
+          <select id="fxComp" class="full"><option value="">Tüm turnuvalar</option></select>
+          <div id="fxList" class="fx-list"></div>
+          <small class="muted">＋ ile seç. Maçın adına tıklarsan “Tek video” sekmesinde açılır.</small>
+        </section>
 
-      <section class="queue">
-        <h2>🤖 Otomatik kuyruk</h2>
-
-        <div class="q-step"><span class="q-num">1</span> Seçilen maçlar <small class="muted">— fikstürde ＋ ile ekle, tekrar tıklayınca çıkar</small></div>
-        <div id="qDrafts" class="q-list"></div>
-
-        <div class="q-startbar">
-          <div class="q-grid">
+        <section class="card queue">
+          <div class="card-head"><h2>Seçilen maçlar</h2><span class="muted small" id="qDefaults"></span></div>
+          <div id="qDrafts" class="q-list"></div>
+          <div class="q-startbar">
             <label>Tümünün formatı
               <select id="qAllMode">
-                <option value="">— maç başına seç —</option>
-                <option value="random">🎲 Rastgele (sırayla dağıt)</option>
+                <option value="">— maç başına —</option>
+                <option value="random">🎲 Rastgele (sırayla)</option>
                 <option value="ring">Dönen Halka</option>
                 <option value="plinko">Plinko Kalesi</option>
                 <option value="football">Mini Futbol</option>
@@ -52,169 +56,201 @@
             </label>
             <label>Tümünün şansı
               <select id="qAllLuck">
-                <option value="keep">— maç başına seç —</option>
+                <option value="keep">— maç başına —</option>
                 <option value="real">🎯 Gerçekçi (önerilen)</option>
-                <option value="">Ortak ayar (paneldeki güç etkisi)</option>
-                <option value="0">🎲 Tam şans (%0 güç)</option>
-                <option value="0.2">Çoğu şans (%20 güç)</option>
-                <option value="0.4">Dengeli (%40 güç)</option>
-                <option value="0.6">Güç ağırlıklı (%60 güç)</option>
-                <option value="0.8">Güçlü favori (%80 güç)</option>
+                <option value="">Ayarlardaki güç etkisi</option>
+                <option value="0">🎲 Tam şans</option>
+                <option value="0.2">Çoğu şans</option>
+                <option value="0.4">Dengeli</option>
+                <option value="0.6">Güç ağırlıklı</option>
+                <option value="0.8">Güçlü favori</option>
               </select>
             </label>
-            <label>Müzik
-              <select id="qMusic">
-                <option value="synth">🎵 Dahili müzik (telifsiz)</option>
-                <option value="file">📁 music klasöründen</option>
-                <option value="off">Müzik yok</option>
-              </select>
-            </label>
-            <label>Video ve YouTube dili <select id="qLang"></select></label>
-            <label>Oyun süresi
-              <select id="qDuration"><option value="30">30 sn</option><option value="45">45 sn</option><option value="60">60 sn</option></select>
-            </label>
-            <label>Yükleme
-              <select id="qUpload">
-                <option value="off">Sadece üret (klasöre kaydet)</option>
-                <option value="youtube">YouTube'a otomatik yükle</option>
-              </select>
-            </label>
-            <label>Yayın zamanı
-              <span class="row"><input id="qLead" type="number" min="0" max="1440" step="5" value="60" /> <span class="muted">dk maçtan önce</span></span>
-            </label>
+            <button id="qStart" class="primary big" disabled>▶ Başlat</button>
           </div>
-          <button id="qStart" class="primary" disabled>▶ Başlat</button>
-          <small class="muted"><b>Şans:</b> sonucun ne kadar şansa, ne kadar takım gücüne bağlı olacağı. “Tam şans”ta güçler hiç etkilemez; “Güçlü favori”de favori takım belirgin avantajlıdır ama yine de kaybedebilir. Ev sahibi avantajı ve seçili dilin düzenlenmiş metinleri paneldeki ayarlardan alınır.</small>
-        </div>
 
-        <div id="qYoutube" class="q-yt"></div>
-
-        <div class="q-step"><span class="q-num">2</span> Kuyruk ve sonuçlar</div>
-        <div id="qStats" class="q-stats"></div>
-        <div id="qList" class="q-list"></div>
-        <small class="muted">Başlatılan maçlar arka planda sırayla üretilir (video başına ~1 dk). Araç açık olduğu sürece kuyruk işlenir.
-          YouTube'a zamanlanan videoyu YouTube kendisi yayınlar, o saatte bilgisayarın açık olması gerekmez.</small>
-      </section>
-
-      <div class="teams">
-        <div class="team" data-team="0">
-          <div class="team-head"><span class="tag">EV SAHİBİ</span></div>
-          <div class="ac">
-            <input class="t-name" type="text" placeholder="Takım ara (ör. Real Madrid, Türkiye…)" value="Real Madrid" autocomplete="off" spellcheck="false" />
-            <div class="t-suggest" hidden></div>
-          </div>
-          <small class="t-league muted"></small>
-          <div class="row logo-row">
-            <img class="t-logo" alt="" />
-            <label class="file">Logo yükle<input class="t-file" type="file" accept="image/*" /></label>
-          </div>
-          <div class="row colors">
-            <label>Renk 1 <input class="t-c1" type="color" value="#ffffff" /></label>
-            <label>Renk 2 <input class="t-c2" type="color" value="#febe10" /></label>
-          </div>
-          <div class="row">
-            <label class="grow">Elo puanı <input class="t-elo" type="number" min="800" max="2400" step="1" placeholder="otomatik" /></label>
-            <label class="grow">Kadro değeri (M€) <input class="t-value" type="number" min="0" step="1" placeholder="isteğe bağlı" /></label>
-          </div>
-          <small class="t-status muted"></small>
-        </div>
-
-        <div class="team" data-team="1">
-          <div class="team-head"><span class="tag">DEPLASMAN</span></div>
-          <div class="ac">
-            <input class="t-name" type="text" placeholder="Takım ara (ör. Barcelona, Türkiye…)" value="Barcelona" autocomplete="off" spellcheck="false" />
-            <div class="t-suggest" hidden></div>
-          </div>
-          <small class="t-league muted"></small>
-          <div class="row logo-row">
-            <img class="t-logo" alt="" />
-            <label class="file">Logo yükle<input class="t-file" type="file" accept="image/*" /></label>
-          </div>
-          <div class="row colors">
-            <label>Renk 1 <input class="t-c1" type="color" value="#a50044" /></label>
-            <label>Renk 2 <input class="t-c2" type="color" value="#004d98" /></label>
-          </div>
-          <div class="row">
-            <label class="grow">Elo puanı <input class="t-elo" type="number" min="800" max="2400" step="1" placeholder="otomatik" /></label>
-            <label class="grow">Kadro değeri (M€) <input class="t-value" type="number" min="0" step="1" placeholder="isteğe bağlı" /></label>
-          </div>
-          <small class="t-status muted"></small>
-        </div>
+          <div class="card-head sub"><h2>Kuyruk</h2></div>
+          <div id="qList" class="q-list"></div>
+          <small class="muted">Arka planda sırayla üretilir (video başına ~1 dk). Araç açık olduğu sürece kuyruk işlenir.</small>
+        </section>
       </div>
-
-      <div class="settings">
-        <label>Oyun formatı
-          <select id="mode">
-            <option value="random">🎲 Rastgele (her seferinde farklı)</option>
-            <option value="ring">Dönen Halka</option>
-            <option value="plinko">Plinko Kalesi</option>
-            <option value="football">Mini Futbol</option>
-            <option value="race">Engelli Parkur</option>
-          </select>
-        </label>
-        <label>Oyun süresi
-          <select id="duration">
-            <option value="30">30 sn</option>
-            <option value="45" selected>45 sn (önerilen)</option>
-            <option value="60">60 sn</option>
-          </select>
-        </label>
-        <label class="check span2"><input id="realistic" type="checkbox" checked />
-          🎯 <b>Gerçekçi sonuç</b> (önerilen): sonuç gerçek futbol olasılıklarına göre seçilir, sürprizler gerçekteki kadar seyrek olur.
-          Kapalıysa aşağıdaki "Güç etkisi" kullanılır.</label>
-        <label class="span2">Güç etkisi: <b id="influenceVal">40%</b>
-          <input id="influence" type="range" min="0" max="100" value="40" />
-          <small class="muted">0% = tamamen şans. Yüksek değerde güçlü takım daha avantajlı ama yine de kaybedebilir.</small>
-          <div id="strengthInfo" class="strength-info"></div>
-        </label>
-        <label>Arka plan müziği
-          <select id="musicMode">
-                <option value="synth">🎵 Dahili müzik (telifsiz)</option>
-                <option value="file">📁 music klasöründen</option>
-                <option value="off">Müzik yok</option>
-          </select>
-        </label>
-        <label>Müzik seviyesi: <b id="musicVolVal">60%</b>
-          <input id="musicVol" type="range" min="0" max="100" value="60" />
-        </label>
-        <small class="muted span2" id="musicHint">Dahili müzik her maçta araç tarafından yeniden bestelenir (farklı tempo/ton), telif sorunu yoktur.
-          “music klasöründen” seçersen aracın klasöründeki <code>music</code> klasörüne koyduğun parçalardan biri çalar (ör. YouTube Ses Kitaplığı'ndan indirdiklerin).</small>
-        <label class="check"><input id="sound" type="checkbox" checked /> Ses ve efektler</label>
-        <label class="check"><input id="monitor" type="checkbox" checked /> Kayıtta sesi duy</label>
-        <label>Video dili
-          <select id="lang"></select>
-        </label>
-        <label class="check"><input id="home" type="checkbox" checked /> Ev sahibi avantajı</label>
-        <label class="span2">Alt başlık
-          <input id="subtitle" type="text" placeholder="ör. Champions League • Wed 25 Nov, 20:00 UK" value="" />
-        </label>
-        <label class="span2">Seed (aynı seed = aynı maç)
-          <div class="row"><input id="seed" type="text" placeholder="boş = rastgele" /><button id="dice" title="Rastgele seed">🎲</button></div>
-        </label>
-      </div>
-
-      <details class="texts">
-        <summary>✏️ Videodaki metinleri düzenle <small class="muted">(seçili dil için kaydedilir)</small></summary>
-        <div id="textEditor" class="text-editor"></div>
-        <div class="row">
-          <button id="textsReset" class="secondary">Bu dilin metinlerini varsayılana döndür</button>
-        </div>
-      </details>
-
-      <div class="actions">
-        <button id="preview" class="secondary">▶ Önizle</button>
-        <button id="record" class="primary">⏺ Kaydet ve indir</button>
-        <button id="cover" class="secondary">🖼 Sadece kapak indir</button>
-        <button id="batch" class="secondary">🎬 4 formatın hepsini üret</button>
-        <button id="stop" class="danger" disabled>⏹ Durdur</button>
-      </div>
-      <p id="status" class="muted"></p>
-      <div id="results"></div>
     </section>
 
-    <section class="stage">
-      <div class="phone"><canvas id="canvas" width="1080" height="1920"></canvas></div>
-      <small class="muted center">Kayıt sırasında bu sekmeyi açık ve görünür tut.</small>
+    <!-- ============================================================ 📊 SONUÇLAR -->
+    <section class="page" data-page="results">
+      <section class="card">
+        <div id="qStats" class="q-stats"></div>
+        <div id="qResults" class="q-list"></div>
+      </section>
+    </section>
+
+    <!-- ============================================================ 🎬 TEK VIDEO (elle) -->
+    <section class="page" data-page="single">
+      <div class="single-layout">
+        <div class="single-controls">
+          <div class="teams">
+            <div class="team card" data-team="0">
+              <div class="team-head"><span class="tag">EV SAHİBİ</span></div>
+              <div class="ac">
+                <input class="t-name" type="text" placeholder="Takım ara (ör. Real Madrid, Türkiye…)" value="Real Madrid" autocomplete="off" spellcheck="false" />
+                <div class="t-suggest" hidden></div>
+              </div>
+              <small class="t-league muted"></small>
+              <div class="row logo-row">
+                <img class="t-logo" alt="" />
+                <label class="file">Logo yükle<input class="t-file" type="file" accept="image/*" /></label>
+              </div>
+              <details class="team-more">
+                <summary>Renk ve güç</summary>
+                <div class="row colors">
+                  <label>Renk 1 <input class="t-c1" type="color" value="#ffffff" /></label>
+                  <label>Renk 2 <input class="t-c2" type="color" value="#febe10" /></label>
+                </div>
+                <div class="row">
+                  <label class="grow">Elo puanı <input class="t-elo" type="number" min="800" max="2400" step="1" placeholder="otomatik" /></label>
+                  <label class="grow">Kadro değeri (M€) <input class="t-value" type="number" min="0" step="1" placeholder="isteğe bağlı" /></label>
+                </div>
+              </details>
+              <small class="t-status muted"></small>
+            </div>
+
+            <div class="team card" data-team="1">
+              <div class="team-head"><span class="tag">DEPLASMAN</span></div>
+              <div class="ac">
+                <input class="t-name" type="text" placeholder="Takım ara (ör. Barcelona, Türkiye…)" value="Barcelona" autocomplete="off" spellcheck="false" />
+                <div class="t-suggest" hidden></div>
+              </div>
+              <small class="t-league muted"></small>
+              <div class="row logo-row">
+                <img class="t-logo" alt="" />
+                <label class="file">Logo yükle<input class="t-file" type="file" accept="image/*" /></label>
+              </div>
+              <details class="team-more">
+                <summary>Renk ve güç</summary>
+                <div class="row colors">
+                  <label>Renk 1 <input class="t-c1" type="color" value="#a50044" /></label>
+                  <label>Renk 2 <input class="t-c2" type="color" value="#004d98" /></label>
+                </div>
+                <div class="row">
+                  <label class="grow">Elo puanı <input class="t-elo" type="number" min="800" max="2400" step="1" placeholder="otomatik" /></label>
+                  <label class="grow">Kadro değeri (M€) <input class="t-value" type="number" min="0" step="1" placeholder="isteğe bağlı" /></label>
+                </div>
+              </details>
+              <small class="t-status muted"></small>
+            </div>
+          </div>
+
+          <div id="strengthInfo" class="strength-info"></div>
+
+          <section class="card">
+            <div class="grid2">
+              <label>Oyun formatı
+                <select id="mode">
+                  <option value="random">🎲 Rastgele (her seferinde farklı)</option>
+                  <option value="ring">Dönen Halka</option>
+                  <option value="plinko">Plinko Kalesi</option>
+                  <option value="football">Mini Futbol</option>
+                  <option value="race">Engelli Parkur</option>
+                </select>
+              </label>
+              <label>Alt başlık
+                <input id="subtitle" type="text" placeholder="ör. Champions League • Wed 25 Nov, 20:00 UK" value="" />
+              </label>
+            </div>
+            <details class="adv">
+              <summary>Gelişmiş: seed</summary>
+              <label>Seed (aynı seed = aynı maç)
+                <span class="row"><input id="seed" type="text" placeholder="boş = rastgele" /><button id="dice" title="Rastgele seed">🎲</button></span>
+              </label>
+            </details>
+            <div class="actions">
+              <button id="record" class="primary big">⏺ Kaydet ve indir</button>
+              <button id="preview" class="secondary">▶ Önizle</button>
+              <button id="stop" class="danger" disabled>⏹ Durdur</button>
+              <details class="more-actions">
+                <summary>Diğer</summary>
+                <button id="cover" class="secondary">🖼 Sadece kapak indir</button>
+                <button id="batch" class="secondary">🎬 4 formatın hepsini üret</button>
+              </details>
+            </div>
+          </section>
+          <div id="results"></div>
+        </div>
+
+        <section class="stage">
+          <div class="phone"><canvas id="canvas" width="1080" height="1920"></canvas></div>
+          <small class="muted center">Kayıt sırasında bu sekmeyi açık ve görünür tut.</small>
+        </section>
+      </div>
+    </section>
+
+    <!-- ============================================================ ⚙️ AYARLAR -->
+    <section class="page" data-page="settings">
+      <div class="settings-grid">
+        <section class="card">
+          <h2>🎬 Video</h2>
+          <label>Video ve YouTube dili <select id="lang"></select></label>
+          <label>Oyun süresi
+            <select id="duration">
+              <option value="30">30 sn</option>
+              <option value="45" selected>45 sn (önerilen)</option>
+              <option value="60">60 sn</option>
+            </select>
+          </label>
+          <label class="check"><input id="realistic" type="checkbox" checked />
+            <span>🎯 <b>Gerçekçi sonuç</b> (önerilen): sonuç gerçek futbol olasılıklarına göre seçilir.</span></label>
+          <label>Güç etkisi (Gerçekçi kapalıyken): <b id="influenceVal">40%</b>
+            <input id="influence" type="range" min="0" max="100" value="40" />
+            <small class="muted">0% = tamamen şans; yüksekse güçlü takım daha avantajlı.</small>
+          </label>
+          <label class="check"><input id="home" type="checkbox" checked /> Ev sahibi avantajı</label>
+        </section>
+
+        <section class="card">
+          <h2>🎵 Ses ve müzik</h2>
+          <label>Arka plan müziği
+            <select id="musicMode">
+              <option value="synth">🎵 Dahili müzik (telifsiz)</option>
+              <option value="file">📁 music klasöründen</option>
+              <option value="off">Müzik yok</option>
+            </select>
+          </label>
+          <label>Müzik seviyesi: <b id="musicVolVal">60%</b>
+            <input id="musicVol" type="range" min="0" max="100" value="60" />
+          </label>
+          <small class="muted" id="musicHint">Dahili müzik her videoda yeniden bestelenir, telif sorunu yoktur. Kendi parçaların için aracın klasöründeki
+            <code>music</code> klasörünü, gerçek gol/tribün sesi için <code>sounds</code> klasörünü kullan.</small>
+          <label class="check"><input id="sound" type="checkbox" checked /> Ses ve efektler</label>
+          <label class="check"><input id="monitor" type="checkbox" checked /> Kayıtta sesi hoparlörden duy</label>
+        </section>
+
+        <section class="card">
+          <h2>📤 Yayın ve YouTube</h2>
+          <label>Yükleme
+            <select id="qUpload">
+              <option value="off">Sadece üret (klasöre kaydet, elle yükle)</option>
+              <option value="youtube">YouTube'a otomatik yükle</option>
+            </select>
+          </label>
+          <label>Yayın zamanı
+            <span class="row"><input id="qLead" type="number" min="0" max="1440" step="5" value="60" /> <span class="muted">dk maçtan önce</span></span>
+          </label>
+          <div id="qYoutube" class="q-yt"></div>
+        </section>
+
+        <section class="card span-all">
+          <h2>✏️ Metinler</h2>
+          <p class="muted small">Videodaki yazılar, YouTube başlık/açıklaması ve maç sonu metinleri (seçili video dili için kaydedilir).
+            Çeşitli metinlerde her satır (açıklamada <code>---</code> ile ayrılan her blok) ayrı bir tarzdır; her videoda biri rastgele seçilir.</p>
+          <details class="texts">
+            <summary>Metinleri düzenle</summary>
+            <div id="textEditor" class="text-editor"></div>
+            <div class="row">
+              <button id="textsReset" class="secondary">Bu dilin metinlerini varsayılana döndür</button>
+            </div>
+          </details>
+        </section>
+      </div>
     </section>
   </main>
 

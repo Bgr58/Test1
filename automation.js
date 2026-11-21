@@ -5,7 +5,7 @@ import { createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { makeTexts } from './public/js/i18n.js';
+import { makeTexts, pickVariant } from './public/js/i18n.js';
 
 const MODES = ['ring', 'plinko', 'football', 'race'];
 const MAX_ATTEMPTS = 3;
@@ -35,7 +35,7 @@ export function resultLines(job, stats) {
   const f = job.fixture;
   const vars = { home: f.home.name, away: f.away.name, pred: job.result.score.join('-'), final: `${job.actual.home}-${job.actual.away}` };
   const key = { exact: 'postExact', outcome: 'postOutcome', miss: 'postMiss' }[job.verdict];
-  return [T.t(key, vars), T.t('postRecord', { hits: stats.hits, total: stats.total, pct: stats.pct, exact: stats.exact })];
+  return [pickVariant(T.t(key, vars), job.id), T.t('postRecord', { hits: stats.hits, total: stats.total, pct: stats.pct, exact: stats.exact })];
 }
 
 // YouTube linkinden video kimliği (shorts/ID, watch?v=ID, youtu.be/ID ya da sadece ID)

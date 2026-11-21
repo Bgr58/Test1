@@ -243,6 +243,7 @@ export class Automation {
     const next = { ...this.state.settings };
     if (s.uploadMode === 'off' || s.uploadMode === 'youtube') next.uploadMode = s.uploadMode;
     if (Number.isFinite(+s.leadMinutes)) next.leadMinutes = Math.max(0, Math.min(24 * 60, Math.round(+s.leadMinutes)));
+    const turnedOn = s.autoDesc === true && this.state.settings.autoDesc === false;
     if (typeof s.autoDesc === 'boolean') next.autoDesc = s.autoDesc;
     this.state.settings = next;
     // YouTube'a geçildiyse: klasörde bekleyen (henüz başlamamış maçların) videolarını da yükle
@@ -251,6 +252,8 @@ export class Automation {
     }
     await this.save();
     this.kick();
+    // otomatik açıklama sonradan açıldıysa bekleyenleri hemen güncelle (5 dk beklemeden)
+    if (turnedOn) this.updateDescriptions().catch((e) => this.log.warn('[açıklama]', e.message));
   }
 
   getJob(id) {

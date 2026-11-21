@@ -355,3 +355,32 @@ test('kullanıcı akışı: 1. video silinir, 2. üretilir, o da silinir → o m
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('araç kapalıyken biten maçlar: açılınca sonuç alınır; otomatik açıklama kapalıyken bekler, açılınca hemen güncellenir', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mt8-'));
+  try {
+    const updated = [];
+    const yt = { status: async () => ({ connected: true, canEdit: true }), updateDescription: async (id, f) => { updated.push([id, f('eski')]); return true; } };
+    const results = { k1: { completed: true, statusName: 'STATUS_FULL_TIME', home: { score: 1 }, away: { score: 1 } } };
+    const mk = () => new Automation({ root, port: 0, youtube: yt, log: { log() {}, warn() {}, error() {} }, getResult: async (id) => results[id] });
+    // maç 3 gün önce oynandı, araç o zamandan beri kapalıydı
+    const a = mk();
+    await a.load();
+    await a.updateSettings({ autoDesc: false });
+    const j = await a.addTracked({ fixture: { ...fixture('k1', 0), date: new Date(Date.now() - 72 * H).toISOString() }, score: [1, 1], modeId: 'ring' });
+    await a.setYoutubeLink(j.id, 'https://youtube.com/shorts/KICKabc1234');
+    // araç yeniden açıldı
+    const b = mk();
+    await b.load();
+    await b.checkResults();
+    const jb = b.getJob(j.id);
+    assert.equal(jb.verdict, 'exact', '3 gün sonra açılınca da sonuç alınmalı');
+    assert.equal(updated.length, 0, 'otomatik açıklama kapalıyken dokunulmaz');
+    await b.updateSettings({ autoDesc: true });
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(updated.length, 1, 'açılınca hemen güncellenmeli');
+    assert.match(updated[0][1], /^✅ NAILED IT!.*\n📊 .*\n\neski$/s);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

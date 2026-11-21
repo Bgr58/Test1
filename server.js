@@ -225,6 +225,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/auth/youtube/callback') {
       try {
         await youtube.handleCallback({ code: q('code'), state: q('state'), error: q('error') }, REDIRECT);
+        // bağlantı yenilendiyse (ör. açıklama izni verildi) bekleyen açıklamaları hemen güncelle
+        automation.updateDescriptions().catch((e) => console.warn('[açıklama]', e.message));
         res.writeHead(302, { Location: '/?youtube=ok' });
       } catch (e) {
         res.writeHead(302, { Location: '/?youtube=' + encodeURIComponent(e.message) });

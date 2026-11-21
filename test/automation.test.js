@@ -334,3 +334,24 @@ test('silme ve "en son video geçerli": eski tahmin karneye girmez, yenisi silin
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('kullanıcı akışı: 1. video silinir, 2. üretilir, o da silinir → o maç için hiç video kalmaz', async () => {
+  const { trackStats } = await import('../automation.js');
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mt7-'));
+  try {
+    const results = { r9: { completed: true, statusName: 'STATUS_FULL_TIME', home: { score: 1 }, away: { score: 0 } } };
+    const a = new Automation({ root, port: 0, youtube: null, log: { log() {}, warn() {}, error() {} }, getResult: async (id) => results[id] });
+    await a.load();
+    const fx = { ...fixture('r9', 0), date: new Date(Date.now() - 3 * H).toISOString() };
+    const v1 = await a.addTracked({ fixture: fx, score: [0, 2], modeId: 'ring' });
+    await a.removeJob(v1.id); // 1. video panelden (ve kanaldan) silindi
+    const v2 = await a.addTracked({ fixture: fx, score: [1, 0], modeId: 'race' });
+    assert.equal(v2.superseded, false);
+    await a.removeJob(v2.id); // 2. video da silindi
+    assert.equal(a.state.jobs.filter((j) => j.fixture.id === 'r9').length, 0, 'o maç için hiç video kalmamalı');
+    await a.checkResults();
+    assert.equal(trackStats(a.state.jobs).total, 0, 'karnede o maç olmamalı');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

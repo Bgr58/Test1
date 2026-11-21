@@ -161,6 +161,11 @@ Panelde **Arka plan müziği** (kuyrukta **Müzik**) seçimi:
   "Atıf gerekli" yazanlarda atıf satırını açıklamaya ekle. Trend/popüler şarkılar Content ID hak talebi alır, koyma.
 - **Müzik yok.**
 
+**Gol sesi:** Varsayılan olarak "GOOOOL!" diye bağıran tribün sentezlenir: farklı perdelerden 28 ses,
+stadyum yankısı, uğultu ve alkış. Daha gerçekçi bir kayıt istersen `sounds` klasörüne adı `gol` ya da `goal` ile başlayan
+bir ses dosyası koy (ör. YouTube Ses Kitaplığı → Ses efektleri → "crowd cheer"). Birden fazla dosya varsa her golde rastgele biri çalar.
+Top/çarpışma sesleri kendi kanalında kısık tutulur.
+
 Ses seviyesi YouTube'un normalizasyon seviyesine göre ayarlıdır (≈ -13/-14 LUFS, tepe ≤ -1 dB; kompresör + limiter).
 YouTube uygulamasında yüklerken telifli "trend" müzik eklemek istersen, aracın müziğini "Müzik yok" yapıp müziği uygulamadan ekleyebilirsin.
 

@@ -1,0 +1,6 @@
+Gol sesi için kendi kaydını kullanmak istersen buraya adı "gol" ya da "goal" ile başlayan bir ses dosyası koy
+(ör. gol-tribun.mp3, goal-cheer.wav). Birden fazla koyarsan her golde rastgele biri çalar (en fazla 6).
+Dosya yoksa araç "GOOOOL" diye bağıran tribün sesini kendisi sentezler.
+
+TELİF: En güvenlisi YouTube Studio > Ses kitaplığı > "Ses efektleri" bölümünden indirilen tribün/gol sevinci
+kayıtları ("crowd cheer", "stadium crowd goal" gibi aramalar). Bu klasördeki dosyalar GitHub'a gönderilmez.

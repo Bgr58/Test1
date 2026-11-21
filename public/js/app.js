@@ -475,6 +475,9 @@ async function prepareMusic(snd, seed) {
     if (files.length) file = files[seed % files.length].url;
   }
   await snd.prepareMusic({ mode: m.mode, volume: m.volume, file });
+  try {
+    await snd.prepareGoalSounds((await (await fetch('/api/sounds')).json()).goal || []);
+  } catch { /* sentez gol sesi */ }
 }
 
 // ---------------------------------------------------------------- oynatma / kayıt

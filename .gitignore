@@ -6,3 +6,5 @@ data/
 output/
 music/*
 !music/BENIOKU.txt
+sounds/*
+!sounds/BENIOKU.txt

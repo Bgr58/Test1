@@ -41,6 +41,9 @@ async function prepareMusic(sound, music, seed) {
     } catch { /* dahili müziğe düşer */ }
   }
   await sound.prepareMusic({ mode: m.mode, volume: m.volume, file });
+  try {
+    await sound.prepareGoalSounds((await (await fetch('/api/sounds')).json()).goal || []);
+  } catch { /* sentez gol sesi */ }
 }
 
 async function upload(name, blob) {

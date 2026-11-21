@@ -20,6 +20,7 @@ import { Automation } from './automation.js';
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(ROOT, 'public');
 const MUSIC = path.join(ROOT, 'music');
+const SOUNDS = path.join(ROOT, 'sounds');
 const MUSIC_EXT = { '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.wav': 'audio/wav' };
 const PORT = Number(process.env.PORT) || 3000;
 const IMG_HOSTS = ['a.espncdn.com', 'thesportsdb.com'];
@@ -103,6 +104,13 @@ async function handleApi(req, res, url, q) {
     return hit ? send(res, 200, hit) : send(res, 404, { error: 'Güç puanı bulunamadı' });
   }
   if (p === '/api/img') return proxyImage(q('u'), res);
+  if (p === '/api/sounds') {
+    let files = [];
+    try {
+      files = (await readdir(SOUNDS)).filter((f) => /^(gol|goal)/i.test(f) && MUSIC_EXT[path.extname(f).toLowerCase()]).sort();
+    } catch { /* klasör yok */ }
+    return send(res, 200, { goal: files.map((f) => '/sounds/' + encodeURIComponent(f)) });
+  }
   if (p === '/api/music') {
     let files = [];
     try {
@@ -221,10 +229,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     let p = decodeURIComponent(url.pathname);
-    if (p.startsWith('/music/')) {
-      const f = path.normalize(path.join(MUSIC, p.slice(7)));
+    if (p.startsWith('/music/') || p.startsWith('/sounds/')) {
+      const dir = p.startsWith('/music/') ? MUSIC : SOUNDS;
+      const f = path.normalize(path.join(dir, p.slice(p.indexOf('/', 1) + 1)));
       const type = MUSIC_EXT[path.extname(f).toLowerCase()];
-      if (!f.startsWith(MUSIC + path.sep) || !type) return send(res, 403, 'Yasak', 'text/plain');
+      if (!f.startsWith(dir + path.sep) || !type) return send(res, 403, 'Yasak', 'text/plain');
       res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
       return res.end(await readFile(f));
     }

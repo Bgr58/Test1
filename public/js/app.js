@@ -549,6 +549,15 @@ async function addResult({ blob, ext, match, s, seed, modeId, texts }) {
     }
   });
   $('#results').prepend(div);
+  // takvimden seçilmiş maçsa tahmin takibine ekle (maç bitince "tuttu mu?" otomatik kontrol edilir)
+  if (lastFixture && s.A.name === lastFixture.home.name && s.B.name === lastFixture.away.name) {
+    api('POST', '/api/queue/tracked', { fixture: lastFixture, score: match.score, modeId, seed, lang: texts.lang })
+      .then(() => {
+        setStatus(`Bitti: ${s.A.name} ${match.score[0]}-${match.score[1]} ${s.B.name} · tahmin takibine eklendi`);
+        loadQueue(true);
+      })
+      .catch(() => {});
+  }
   downloadBlob(blob, file);
   setTimeout(() => downloadBlob(thumb, `${base}_cover.jpg`), 600);
 }
@@ -616,7 +625,66 @@ const STATUS = {
   scheduled: ['YouTube’da zamanlandı', 'st-ok'],
   failed: ['Hata', 'st-bad'],
   missed: ['Kaçırıldı', 'st-bad'],
+  manual: ['Elle üretildi', 'st-ok'],
 };
+const VERDICT = { exact: ['✅ Tam skor!', 'v-exact'], outcome: ['🟡 Sonuç tuttu', 'v-outcome'], miss: ['❌ Tutmadı', 'v-miss'], void: ['⏸ Ertelendi/iptal · sayılmaz', 'v-void'] };
+
+// Tahmin karnesi (sadece sonucu belli olan maçlar; ertelenenler sayılmaz)
+function trackStats(jobs) {
+  const judged = jobs.filter((j) => ['exact', 'outcome', 'miss'].includes(j.verdict)).sort((a, b) => a.fixture.date.localeCompare(b.fixture.date));
+  const total = judged.length;
+  const exact = judged.filter((j) => j.verdict === 'exact').length;
+  const hits = exact + judged.filter((j) => j.verdict === 'outcome').length;
+  const byMode = {};
+  for (const j of judged) {
+    const m = (byMode[j.modeId] ||= { total: 0, hits: 0 });
+    m.total++;
+    if (j.verdict !== 'miss') m.hits++;
+  }
+  const waiting = jobs.filter((j) => j.result?.score && !j.verdict).length;
+  return { total, hits, exact, pct: total ? Math.round((100 * hits) / total) : 0, byMode, last: judged.slice(-8), waiting };
+}
+
+function postText(j, stats) {
+  const lang = j.settings?.lang || 'en';
+  const T = makeTexts(lang, overridesFor(lang));
+  const f = j.fixture;
+  const vars = { home: f.home.name, away: f.away.name, pred: j.result.score.join('-'), final: `${j.actual.home}-${j.actual.away}` };
+  const key = { exact: 'postExact', outcome: 'postOutcome', miss: 'postMiss' }[j.verdict];
+  return `${T.t(key, vars)}\n${T.t('postRecord', { hits: stats.hits, total: stats.total, pct: stats.pct, exact: stats.exact })}`;
+}
+
+function renderStats(q) {
+  const st = trackStats(q.jobs);
+  const box = $('#qStats');
+  if (!st.total && !st.waiting) {
+    box.innerHTML = '<span class="muted">📊 Tahmin karnesi: maçlar bittikçe sonuçlar burada görünecek.</span>';
+    return;
+  }
+  const icon = { exact: '✅', outcome: '🟡', miss: '❌' };
+  const modes = Object.entries(st.byMode)
+    .map(([m, v]) => `${escapeHtml(modeName(m))} ${v.hits}/${v.total}`)
+    .join(' · ');
+  box.innerHTML = `<div class="row wrap stats-row">
+      <b>📊 Tahmin karnesi</b>
+      <span class="stat"><b>${st.total}</b> maç</span>
+      <span class="stat">Sonuç <b>%${st.pct}</b> (${st.hits})</span>
+      <span class="stat">Tam skor <b>${st.exact}</b></span>
+      ${st.last.length ? `<span class="stat" title="Son maçlar">Son: ${st.last.map((j) => icon[j.verdict]).join('')}</span>` : ''}
+      ${st.waiting ? `<span class="muted">${st.waiting} maç sonucu bekleniyor</span>` : ''}
+      <button id="qCheck" class="secondary" title="Biten maçların sonucunu şimdi kontrol et">🔄</button>
+    </div>
+    ${modes ? `<div class="muted small">Formata göre doğru sonuç: ${modes}</div>` : ''}`;
+  $('#qCheck').addEventListener('click', async () => {
+    try {
+      const r = await api('POST', '/api/queue/check-results');
+      setStatus(r.updated ? `${r.updated} maçın sonucu güncellendi.` : 'Yeni biten maç yok (sonuçlar maçtan ~2 saat sonra gelir).');
+      loadQueue(true);
+    } catch (e) {
+      setStatus('Hata: ' + e.message);
+    }
+  });
+}
 const MODE_OPTS = [['random', '🎲 Rastgele'], ['ring', 'Dönen Halka'], ['plinko', 'Plinko Kalesi'], ['football', 'Mini Futbol'], ['race', 'Engelli Parkur']];
 const fmtWhen = (iso) => new Date(iso).toLocaleString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const modeName = (id) => MODE_OPTS.find(([k]) => k === id)?.[1] || id;
@@ -684,7 +752,11 @@ function jobRow(j, draft) {
   const f = j.fixture;
   const logo = (t) => (t.logo ? `<img src="${t.logo}" alt="" loading="lazy" />` : '');
   const meta = [escapeHtml(f.league), fmtWhen(f.date)];
-  if (!draft) meta.push(escapeHtml(modeName(j.modeId)), escapeHtml(luckName(j.settings?.influence ?? 0.4)), escapeHtml(LANGS[j.settings?.lang]?.label || ''));
+  if (!draft) {
+    meta.push(escapeHtml(modeName(j.modeId)));
+    if (Number.isFinite(j.settings?.influence)) meta.push(escapeHtml(luckName(j.settings.influence)));
+    meta.push(escapeHtml(LANGS[j.settings?.lang]?.label || ''));
+  }
   if (j.result) meta.push(`tahmin ${j.result.score[0]}-${j.result.score[1]}`);
   let info = '';
   let side = '';
@@ -697,12 +769,20 @@ function jobRow(j, draft) {
     const yt = j.youtube;
     const pub = yt?.publishAt || j.plannedPublishAt;
     if (j.status === 'scheduled') info = pub ? `Yayın: ${fmtWhen(pub)}${yt.thumbnail === false ? ' · kapak telefondan eklenmeli' : ''}` : 'Yayında';
-    else if (j.status === 'ready' && pub) info = `Studio'da şu saate zamanla: <b>${fmtWhen(pub)}</b>`;
+    else if (j.status === 'ready' && pub && new Date(pub) > Date.now()) info = `Studio'da şu saate zamanla: <b>${fmtWhen(pub)}</b>`;
     else if (j.error) info = `<span class="err">${escapeHtml(j.error)}</span>`;
+    if (j.verdict) {
+      const [vt, vc] = VERDICT[j.verdict];
+      const fin = j.verdict === 'void' ? '' : `Sonuç <b>${j.actual.home}-${j.actual.away}</b> · `;
+      info = `<span class="verdict ${vc}">${fin}${vt}</span>`;
+    } else if (j.result?.score && new Date(j.fixture.date) < Date.now()) {
+      info = (info ? info + ' · ' : '') + '<span class="muted">⏳ sonuç bekleniyor</span>';
+    }
     side = `<span class="q-status ${cls}">${label}</span>`;
     const busy = ['rendering', 'uploading'].includes(j.status);
     actions = [
       j.status === 'queued' ? '<button data-act="unstart" title="Seçilenlere geri al (format değiştirmek için)">↩</button>' : '',
+      ['exact', 'outcome', 'miss'].includes(j.verdict) ? '<button data-act="post" title="“Tahmin tuttu mu?” paylaşım metnini kopyala">📋</button>' : '',
       j.dir && j.result ? '<button data-act="open" title="Klasörü aç">📂</button>' : '',
       yt?.url ? `<a href="${yt.url}" target="_blank" rel="noopener" title="YouTube'da aç">▶</a>` : '',
       j.status === 'failed' ? '<button data-act="retry" title="Tekrar dene">↻</button>' : '',
@@ -722,7 +802,8 @@ function jobRow(j, draft) {
 
 function renderQueue(q) {
   lastQueue = q;
-  fixtureJobs = new Map(q.jobs.filter((j) => j.status !== 'failed').map((j) => [j.fixture.id, j]));
+  fixtureJobs = new Map(q.jobs.filter((j) => j.status !== 'failed' && j.status !== 'manual').map((j) => [j.fixture.id, j]));
+  renderStats(q);
   $('#qUpload').value = q.settings.uploadMode;
   if (document.activeElement !== $('#qLead')) $('#qLead').value = q.settings.leadMinutes;
   const drafts = q.jobs.filter((j) => j.status === 'draft');
@@ -846,6 +927,16 @@ async function onRowAction(e) {
       await api('DELETE', `/api/queue/${id}`);
     }
     if (b.dataset.act === 'unstart') await api('POST', `/api/queue/${id}/unstart`);
+    if (b.dataset.act === 'post') {
+      const text = postText(job, trackStats(lastQueue.jobs));
+      try {
+        await navigator.clipboard.writeText(text);
+        setStatus('Paylaşım metni kopyalandı: ' + text.split('\n')[0]);
+      } catch {
+        prompt('Paylaşım metni (kopyala):', text.replace('\n', ' '));
+      }
+      return;
+    }
     if (b.dataset.act === 'retry') await api('POST', `/api/queue/${id}/retry`);
     if (b.dataset.act === 'open') await api('POST', `/api/queue/${id}/open`);
     await loadQueue(true);

@@ -261,3 +261,15 @@ label.inline select { width: auto; }
 .q-actions { display: flex; gap: 4px; }
 .q-actions button, .q-actions a { padding: 6px 9px; font-size: 13px; text-decoration: none; color: var(--text); background: #1b2440; border: 1px solid var(--line); border-radius: 8px; }
 @media (max-width: 900px) { .q-row { grid-template-columns: 1fr auto; } .q-actions { grid-column: span 2; } }
+
+/* tahmin takibi */
+.q-stats { background: #0f1630; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.stats-row { flex-wrap: wrap; gap: 10px; align-items: center; }
+.stats-row .stat { background: #1b2440; border-radius: 999px; padding: 3px 10px; }
+.stats-row button { padding: 4px 9px; margin-left: auto; }
+.small { font-size: 12px; }
+.verdict { font-weight: 700; }
+.v-exact { color: #6ee7a8; }
+.v-outcome { color: #ffd84d; }
+.v-miss { color: #ff8a9a; }
+.v-void { color: var(--muted); }

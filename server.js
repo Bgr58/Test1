@@ -13,7 +13,7 @@ import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { COMPETITIONS, searchTeams, fixtures, findElo, fetchWithTimeout, teamIndex } from './data.js';
+import { COMPETITIONS, searchTeams, fixtures, findElo, fetchWithTimeout, teamIndex, matchResult } from './data.js';
 import { YouTube } from './youtube.js';
 import { Automation } from './automation.js';
 
@@ -24,7 +24,7 @@ const IMG_HOSTS = ['a.espncdn.com', 'thesportsdb.com'];
 const REDIRECT = `http://localhost:${PORT}/auth/youtube/callback`;
 
 const youtube = new YouTube(path.join(ROOT, 'data'));
-const automation = new Automation({ root: ROOT, port: PORT, youtube });
+const automation = new Automation({ root: ROOT, port: PORT, youtube, getResult: matchResult });
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -107,6 +107,14 @@ async function handleApi(req, res, url, q) {
   if (p === '/api/queue' && m === 'POST') {
     const job = await automation.addDraft(await readJson(req));
     return send(res, 200, { job });
+  }
+  if (p === '/api/queue/tracked' && m === 'POST') {
+    const job = await automation.addTracked(await readJson(req));
+    return send(res, 200, { job });
+  }
+  if (p === '/api/queue/check-results' && m === 'POST') {
+    const n = await automation.checkResults();
+    return send(res, 200, { updated: n });
   }
   if (p === '/api/queue/start' && m === 'POST') {
     const b = await readJson(req);

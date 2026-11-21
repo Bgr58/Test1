@@ -131,6 +131,23 @@ Notlar:
 - Kimlik bilgileri sadece bu bilgisayarda, `data/` klasöründe saklanır. Bu klasörü kimseyle paylaşma.
 - Shorts kapağı API ile ayarlanamayabilir (YouTube reddederse panelde yazar). O durumda kapağı telefondaki YouTube uygulamasından ekle.
 
+## 📊 Tahmin tuttu mu?
+
+- Maç bittikten yaklaşık 2 saat sonra gerçek skor ESPN'den otomatik alınır ve tahminle karşılaştırılır
+  (araç açıkken 5 dakikada bir kontrol eder; 🔄 ile hemen kontrol ettirebilirsin).
+  - ✅ **Tam skor**: skor birebir tuttu
+  - 🟡 **Sonuç tuttu**: kazanan ya da beraberlik (1/X/2) doğru, skor farklı
+  - ❌ **Tutmadı**
+  - ⏸ Ertelenen/iptal edilen maçlar sayılmaz
+- **Tahmin karnesi** "Kuyruk ve sonuçlar"ın üstünde: maç sayısı, doğru sonuç yüzdesi, tam skor sayısı, son maçlar
+  ve formata göre isabet (hangi oyunun daha iyi "tahmin ettiğini" görmek için).
+- Her biten maçta 📋 butonu, kopyalanabilir bir **paylaşım metni** verir. Örnek:
+  "✅ NAILED IT! We predicted Kosovo 0-0 Israel and it finished 0-0! 🔮 📊 Our record: 3/4 results right (75%)…".
+  Topluluk gönderisi, sabit yorum ya da bir sonraki videonun açıklaması için kullanılabilir.
+  Metinler videonun dilinde gelir ve metin düzenleyicideki "Tahmin takibi" bölümünden değiştirilebilir.
+- Kuyruktan üretilen videolar ve takvimden seçip panelde **"Kaydet ve indir"** ile ürettiğin videolar takibe girer.
+  Takımları elle yazdığın (takvimden seçmediğin) videolar takip edilmez.
+
 ## 📈 Etkileşim için yapılanlar
 
 - **İlk kare:** Video ilk kareden itibaren logolar, VS ve büyük "WHO WINS?" ile açılır. Shorts'ta izleyici ilk saniyede karar verir.

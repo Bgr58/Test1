@@ -4,7 +4,7 @@ import http from 'node:http';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { publishPlan, Automation } from '../automation.js';
+import { publishPlan, Automation, judge } from '../automation.js';
 
 const H = 3600_000;
 
@@ -198,6 +198,43 @@ test('maç başına şans: seçilen değer başlatınca güç etkisi olur, seçi
     await a.startDrafts({ influence: 0.4 });
     assert.deepEqual([d1, d2, d3].map((j) => j.settings.influence), [0, 0.8, 0.4]);
     await assert.rejects(a.setLuck(d1.id, 0.2), /değiştirilemez/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('tahmin takibi: tam skor / sonuç / ıska, ertelenen maç sayılmaz, bitmemiş maç beklenir', async () => {
+  assert.equal(judge([2, 1], [2, 1]), 'exact');
+  assert.equal(judge([2, 1], [3, 0]), 'outcome');
+  assert.equal(judge([1, 1], [0, 0]), 'outcome');
+  assert.equal(judge([2, 1], [1, 1]), 'miss');
+  assert.equal(judge([0, 2], [1, 0]), 'miss');
+
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mt5-'));
+  try {
+    const results = {
+      e1: { completed: true, statusName: 'STATUS_FULL_TIME', home: { score: 2 }, away: { score: 1 } },
+      e2: { completed: true, statusName: 'STATUS_FULL_TIME', home: { score: 0 }, away: { score: 0 } },
+      e3: { completed: false, statusName: 'STATUS_POSTPONED', home: { score: null }, away: { score: null } },
+      e4: { completed: false, statusName: 'STATUS_SECOND_HALF', home: { score: 1 }, away: { score: 0 } },
+    };
+    const a = new Automation({ root, port: 0, youtube: null, log: { log() {}, warn() {}, error() {} }, getResult: async (id) => results[id] });
+    await a.load();
+    const past = (h) => ({ ...fixture('x', 0), date: new Date(Date.now() - h * H).toISOString() });
+    const mk = async (id, score, hoursAgo) => a.addTracked({ fixture: { ...past(hoursAgo), id }, score, modeId: 'ring', seed: 1 });
+    const j1 = await mk('e1', [2, 1], 3);
+    const j2 = await mk('e2', [1, 0], 3);
+    const j3 = await mk('e3', [1, 1], 3);
+    const j4 = await mk('e4', [1, 0], 3);
+    const j5 = await mk('e1', [0, 0], 1); // daha 110 dk geçmedi → kontrol edilmez
+    const n = await a.checkResults();
+    assert.equal(n, 3);
+    assert.deepEqual([j1.verdict, j2.verdict, j3.verdict, j4.verdict, j5.verdict], ['exact', 'miss', 'void', undefined, undefined]);
+    assert.deepEqual([j1.actual.home, j1.actual.away], [2, 1]);
+    // elle takip edilen maç, aynı maçın kuyruğa seçilmesini engellemez
+    await a.addDraft({ fixture: { ...fixture('e9', 30) } });
+    await a.addTracked({ fixture: fixture('e9', 30), score: [1, 0], modeId: 'race' });
+    await assert.rejects(a.addTracked({ fixture: fixture('e10', 30), score: [1, -1] }), /Geçersiz skor/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

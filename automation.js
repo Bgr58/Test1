@@ -18,6 +18,16 @@ export const DEFAULT_SETTINGS = {
 const slug = (s) =>
   String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ı/g, 'i').replace(/[^a-zA-Z0-9]+/g, '').slice(0, 24) || 'takim';
 
+// Tahmin tuttu mu? (saf fonksiyon) → 'exact' tam skor, 'outcome' sadece 1/X/2, 'miss' tutmadı
+export function judge(pred, actual) {
+  const [ph, pa] = pred;
+  const [ah, aa] = actual;
+  if (ph === ah && pa === aa) return 'exact';
+  return Math.sign(ph - pa) === Math.sign(ah - aa) ? 'outcome' : 'miss';
+}
+
+const VOID_STATUS = /POSTPONED|CANCEL|ABANDON|SUSPEND|FORFEIT|DELAYED/;
+
 // Yayın zamanı kararı (saf fonksiyon; test edilir)
 //  - maç başlamışsa: kaçırıldı
 //  - yayın saati çok yakın/geçmişse: hemen yayınla
@@ -33,7 +43,8 @@ export function publishPlan(kickoffIso, leadMinutes, now = Date.now()) {
 }
 
 export class Automation {
-  constructor({ root, port, youtube, log = console }) {
+  constructor({ root, port, youtube, log = console, getResult = null }) {
+    this.getResult = getResult; // maç sonucu çekici (data.js matchResult)
     this.root = root;
     this.port = port;
     this.yt = youtube;
@@ -73,10 +84,74 @@ export class Automation {
     const tick = () => this.tick().catch((e) => this.log.error('[kuyruk]', e));
     this.timer = setInterval(tick, intervalMs);
     setTimeout(tick, 2000);
+    // tahmin takibi: biten maçların sonucunu 5 dakikada bir kontrol et
+    const check = () => this.checkResults().catch((e) => this.log.warn('[sonuç takibi]', e.message));
+    this.resultTimer = setInterval(check, 5 * 60_000);
+    setTimeout(check, 5000);
   }
 
   stop() {
     clearInterval(this.timer);
+    clearInterval(this.resultTimer);
+  }
+
+  // ------------------------------------------------------------ tahmin takibi
+  // Maç bitince gerçek skoru alıp tahminle karşılaştırır. Ertelenen/iptal maçlar 'void' (sayılmaz).
+  async checkResults(now = Date.now()) {
+    if (!this.getResult) return 0;
+    const due = this.state.jobs.filter(
+      (j) => j.result?.score && !j.verdict && new Date(j.fixture.date).getTime() + 110 * 60_000 <= now,
+    );
+    let changed = 0;
+    for (const j of due) {
+      let r;
+      try {
+        r = await this.getResult(j.fixture.id);
+      } catch (e) {
+        this.log.warn(`[sonuç takibi] ${j.fixture.home.name}-${j.fixture.away.name}: ${e.message}`);
+        continue;
+      }
+      const tooOld = now - new Date(j.fixture.date).getTime() > 4 * 24 * 3600_000;
+      if (VOID_STATUS.test(r.statusName) || (tooOld && !r.completed)) {
+        j.verdict = 'void';
+        j.actual = { statusName: r.statusName, checkedAt: new Date(now).toISOString() };
+        changed++;
+      } else if (r.completed && Number.isFinite(r.home.score) && Number.isFinite(r.away.score)) {
+        j.actual = { home: r.home.score, away: r.away.score, statusName: r.statusName, checkedAt: new Date(now).toISOString() };
+        j.verdict = judge(j.result.score, [r.home.score, r.away.score]);
+        changed++;
+        this.log.log(`✓ Sonuç: ${j.fixture.home.name} ${r.home.score}-${r.away.score} ${j.fixture.away.name} · tahmin ${j.result.score.join('-')} → ${j.verdict}`);
+      }
+    }
+    if (changed) await this.save();
+    return changed;
+  }
+
+  // Panelden elle kaydedilen (takvimden seçilmiş) videoyu da takibe al
+  async addTracked({ fixture, score, modeId, seed, lang }) {
+    if (!fixture?.id || !fixture.home?.name || !fixture.away?.name || !fixture.date) throw new Error('Eksik maç bilgisi');
+    if (!Array.isArray(score) || score.length !== 2 || !score.every((x) => Number.isInteger(x) && x >= 0)) throw new Error('Geçersiz skor');
+    const pick = (t) => ({ id: t.id, name: t.name, logo: t.logo || '' });
+    const job = {
+      id: crypto.randomBytes(6).toString('hex'),
+      createdAt: new Date().toISOString(),
+      fixture: {
+        id: String(fixture.id), date: fixture.date, league: fixture.league, leagueEn: fixture.leagueEn || fixture.league,
+        national: !!fixture.national, home: pick(fixture.home), away: pick(fixture.away), tz: fixture.tz || null, leagueTag: fixture.leagueTag || '',
+      },
+      modeId: MODES.includes(modeId) ? modeId : 'ring',
+      luck: null,
+      settings: { lang: typeof lang === 'string' ? lang : 'en' },
+      status: 'manual',
+      attempts: 0,
+      error: '',
+      result: { score, modeId, seed: seed ?? null, manual: true },
+      youtube: null,
+    };
+    this.state.jobs.push(job);
+    this.state.jobs.sort((a, b) => a.fixture.date.localeCompare(b.fixture.date));
+    await this.save();
+    return job;
   }
 
   publicState() {
@@ -103,7 +178,7 @@ export class Automation {
   // 1) Seç: maç "taslak" olarak eklenir; üretim başlamaz
   async addDraft({ fixture, modeId }) {
     if (!fixture?.id || !fixture.home?.name || !fixture.away?.name || !fixture.date) throw new Error('Eksik maç bilgisi');
-    const dup = this.state.jobs.find((j) => j.fixture.id === String(fixture.id) && j.status !== 'failed');
+    const dup = this.state.jobs.find((j) => j.fixture.id === String(fixture.id) && j.status !== 'failed' && j.status !== 'manual');
     if (dup) throw new Error('Bu maç zaten listede');
     const pick = (t) => ({
       id: t.id, name: t.name, color: t.color, color2: t.color2, logo: t.logo, knownColors: !!t.knownColors, national: !!fixture.national,

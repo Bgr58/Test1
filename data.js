@@ -398,3 +398,25 @@ export async function findElo({ id, name, national }) {
   if (fb) return { elo: fb.elo, club: fb.club, source: 'yaklaşık tablo' };
   return { elo: DEFAULT_ELO, source: 'varsayılan' };
 }
+
+// ------------------------------------------------------------- maç sonucu (tahmin takibi)
+// ESPN "summary" ucu maç numarasıyla lig bilmeden çalışır (soccer/all).
+export async function matchResult(eventId) {
+  const id = String(eventId || '').replace(/\D/g, '');
+  if (!id) throw new Error('Geçersiz maç numarası');
+  return cached('res:' + id, 5 * 60_000, async () => {
+    const j = await getJson(`${ESPN}/all/summary?event=${id}`);
+    const c = j.header?.competitions?.[0];
+    if (!c) throw new Error('Maç bulunamadı');
+    const st = c.status?.type || {};
+    const side = (ha) => c.competitors?.find((x) => x.homeAway === ha);
+    const num = (x) => (x?.score === undefined || x?.score === null || x?.score === '' ? null : Number(x.score));
+    return {
+      completed: !!st.completed,
+      state: st.state || '',
+      statusName: st.name || '',
+      home: { name: side('home')?.team?.displayName || '', score: num(side('home')) },
+      away: { name: side('away')?.team?.displayName || '', score: num(side('away')) },
+    };
+  });
+}

@@ -222,6 +222,7 @@ public/js/render.js     tabela, giriş/çıkış ekranları
 public/js/strength.js   Elo/kadro değeri → oyun avantajı, isim eşleştirme
 public/js/i18n.js       videodaki tüm metinler (dil paketleri) — yeni dil buraya eklenir
 public/js/audio.js      sentez sesler
+public/js/music.js      telifsiz sentez müzik motoru + music klasöründen çalma
 public/js/recorder.js   MediaRecorder ile video kaydı
 test/                   birim testleri (npm test)
 ```

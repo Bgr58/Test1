@@ -1,0 +1,9 @@
+Bu klasöre kendi müzik dosyalarını (.mp3 .m4a .ogg .wav) koyabilirsin.
+Panelde "Müzik: music klasöründen" seçilince her videoda buradan rastgele bir parça çalar.
+
+TELİF: Sadece kullanım hakkın olan müzikleri koy. En güvenlisi YouTube Studio > Ses kitaplığı
+(Audio Library) bölümünden indirdiğin parçalar; bunlar YouTube'da telif sorunu çıkarmaz.
+"Atıf gerekli" yazan parçalarda, parçanın istediği atıf satırını video açıklamasına eklemelisin.
+Popüler / trend şarkıları koyma: Content ID hak talebi gelir.
+
+Bu klasördeki dosyalar GitHub'a gönderilmez (.gitignore).

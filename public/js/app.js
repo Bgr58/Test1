@@ -436,6 +436,47 @@ function drawPoster() {
   renderFrame(ctx, m, assets, { subtitle: s.subtitle });
 }
 
+// ---------------------------------------------------------------- müzik
+// Panel ve kuyruk aynı müzik ayarını kullanır (iki seçim kutusu senkron)
+const musicSels = [$('#musicMode'), $('#qMusic')];
+const musicVol = $('#musicVol');
+function setMusicMode(v) {
+  for (const el of musicSels) el.value = v;
+  storage.set('musicMode', v);
+  updateMusicHint();
+}
+musicSels.forEach((el) => el.addEventListener('change', () => setMusicMode(el.value)));
+musicVol.value = String(storage.get('musicVol', 60));
+$('#musicVolVal').textContent = musicVol.value + '%';
+musicVol.addEventListener('input', () => {
+  $('#musicVolVal').textContent = musicVol.value + '%';
+  storage.set('musicVol', +musicVol.value);
+});
+const musicSettings = () => ({ mode: $('#musicMode').value, volume: +musicVol.value / 100 });
+async function musicFiles() {
+  try {
+    return (await (await fetch('/api/music')).json()).files || [];
+  } catch {
+    return [];
+  }
+}
+async function updateMusicHint() {
+  if ($('#musicMode').value !== 'file') return;
+  const files = await musicFiles();
+  setStatus(files.length ? `music klasöründe ${files.length} parça var; her videoda biri rastgele çalar.` : 'music klasörü boş — parça ekleyene kadar dahili müzik kullanılır.');
+}
+setMusicMode(['synth', 'file', 'off'].includes(storage.get('musicMode', 'synth')) ? storage.get('musicMode', 'synth') : 'synth');
+
+async function prepareMusic(snd, seed) {
+  const m = musicSettings();
+  let file = null;
+  if (m.mode === 'file') {
+    const files = await musicFiles();
+    if (files.length) file = files[seed % files.length].url;
+  }
+  await snd.prepareMusic({ mode: m.mode, volume: m.volume, file });
+}
+
 // ---------------------------------------------------------------- oynatma / kayıt
 function setBusy(b) {
   for (const id of ['#preview', '#record', '#batch']) $(id).disabled = b;
@@ -460,6 +501,7 @@ async function playOnce({ record, modeId: forcedMode }) {
   const seed = seedText ? (/^\d+$/.test(seedText) ? +seedText : hashStr(seedText)) : randomSeed();
   const assets = buildAssets(s);
   const opts = { subtitle: s.subtitle };
+  await prepareMusic(snd, seed);
   const match = new Match({ teams: [assets.teams[0], assets.teams[1]], modeId, seed, duration: s.duration, edge: s.st.edge, audio: snd, texts: assets.texts });
 
   let recorder = null;
@@ -486,6 +528,7 @@ async function playOnce({ record, modeId: forcedMode }) {
   });
   running = null;
   snd.ambientStop();
+  snd.musicStop();
   snd.setMonitor(true);
 
   if (!recorder) {
@@ -905,7 +948,7 @@ $('#qStart').addEventListener('click', async () => {
   btn.disabled = true;
   try {
     const r = await api('POST', '/api/queue/start', {
-      settings: { lang, duration: +$('#qDuration').value, influence: +influence.value / 100, homeAdvantage: $('#home').checked, overrides: overridesFor(lang) },
+      settings: { lang, duration: +$('#qDuration').value, influence: +influence.value / 100, homeAdvantage: $('#home').checked, overrides: overridesFor(lang), music: musicSettings() },
     });
     setStatus(`${r.started} maç başlatıldı (${LANGS[lang].label}). Kuyruk arka planda işleniyor.`);
     loadQueue(true);

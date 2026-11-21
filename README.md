@@ -148,6 +148,22 @@ Notlar:
 - Kuyruktan üretilen videolar ve takvimden seçip panelde **"Kaydet ve indir"** ile ürettiğin videolar takibe girer.
   Takımları elle yazdığın (takvimden seçmediğin) videolar takip edilmez.
 
+## 🎵 Müzik (telifsiz)
+
+Panelde **Arka plan müziği** (kuyrukta **Müzik**) seçimi:
+
+- **🎵 Dahili müzik (varsayılan):** Araç, enerjik bir elektronik parçayı (kick, clap, hi-hat, bas, arpej) **her videoda anlık besteler**.
+  Hazır bir kayıt kullanılmadığı için **telif sorunu yoktur**. Her maçta tempo (124–142 BPM), ton ve akor dizisi farklıdır.
+  Müzik videoyla senkron ilerler: girişte gerilim kurulur, başlama düdüğüyle ritim girer, son dakikalarda yoğunlaşır,
+  son düdükte susar, tahmin ekranında kutlama çalar. Gollerde müzik kısılır, gol sesi öne çıkar.
+- **📁 music klasöründen:** Aracın klasöründeki `music` klasörüne koyduğun parçalardan (.mp3 .m4a .ogg .wav) biri rastgele çalar.
+  **Sadece kullanım hakkın olan müzikleri koy.** En güvenlisi YouTube Studio → **Ses kitaplığı**'ndan indirilen parçalardır.
+  "Atıf gerekli" yazanlarda atıf satırını açıklamaya ekle. Trend/popüler şarkılar Content ID hak talebi alır, koyma.
+- **Müzik yok.**
+
+Ses seviyesi YouTube'un normalizasyon seviyesine göre ayarlıdır (≈ -13/-14 LUFS, tepe ≤ -1 dB; kompresör + limiter).
+YouTube uygulamasında yüklerken telifli "trend" müzik eklemek istersen, aracın müziğini "Müzik yok" yapıp müziği uygulamadan ekleyebilirsin.
+
 ## 📈 Etkileşim için yapılanlar
 
 - **İlk kare:** Video ilk kareden itibaren logolar, VS ve büyük "WHO WINS?" ile açılır. Shorts'ta izleyici ilk saniyede karar verir.

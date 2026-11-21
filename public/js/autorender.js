@@ -30,6 +30,19 @@ async function team(t) {
   return { name: t.name, color, color2, logo, elo };
 }
 
+// Müzik: dahili (telifsiz sentez) / music klasöründen rastgele parça / kapalı
+async function prepareMusic(sound, music, seed) {
+  const m = music || { mode: 'synth', volume: 0.6 };
+  let file = null;
+  if (m.mode === 'file') {
+    try {
+      const { files } = await (await fetch('/api/music')).json();
+      if (files.length) file = files[seed % files.length].url;
+    } catch { /* dahili müziğe düşer */ }
+  }
+  await sound.prepareMusic({ mode: m.mode, volume: m.volume, file });
+}
+
 async function upload(name, blob) {
   const r = await fetch(`/api/jobs/${jobId}/files/${name}`, { method: 'PUT', headers: H, body: blob });
   if (!r.ok) throw new Error(`${name} kaydedilemedi: ${r.status}`);
@@ -49,6 +62,7 @@ async function run() {
   await sound.resume();
   sound.setMonitor(false); // hoparlörden çalma, sadece videoya kaydet
   const seed = randomSeed();
+  await prepareMusic(sound, st.music, seed);
   const match = new Match({ teams: assets.teams, modeId, seed, duration: st.duration, edge: strength.edge, audio: sound, texts });
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
@@ -68,6 +82,7 @@ async function run() {
     requestAnimationFrame(frame);
   });
   sound.ambientStop();
+  sound.musicStop();
   await new Promise((r) => setTimeout(r, 300));
   const video = await rec.stop();
   const s = { A, B, subtitle, leagueTag: fixture.leagueTag || '' };

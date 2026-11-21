@@ -9,7 +9,7 @@
 //  ...  /auth/youtube                → Google ile bağlan
 // Sunucu sadece bu bilgisayardan erişilebilir (ağdaki diğer cihazlardan gelen istekler reddedilir).
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,6 +19,8 @@ import { Automation } from './automation.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(ROOT, 'public');
+const MUSIC = path.join(ROOT, 'music');
+const MUSIC_EXT = { '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.wav': 'audio/wav' };
 const PORT = Number(process.env.PORT) || 3000;
 const IMG_HOSTS = ['a.espncdn.com', 'thesportsdb.com'];
 const REDIRECT = `http://localhost:${PORT}/auth/youtube/callback`;
@@ -101,6 +103,13 @@ async function handleApi(req, res, url, q) {
     return hit ? send(res, 200, hit) : send(res, 404, { error: 'Güç puanı bulunamadı' });
   }
   if (p === '/api/img') return proxyImage(q('u'), res);
+  if (p === '/api/music') {
+    let files = [];
+    try {
+      files = (await readdir(MUSIC)).filter((f) => MUSIC_EXT[path.extname(f).toLowerCase()]).sort();
+    } catch { /* klasör yok */ }
+    return send(res, 200, { files: files.map((f) => ({ name: f, url: '/music/' + encodeURIComponent(f) })) });
+  }
 
   // ---- kuyruk
   if (p === '/api/queue' && m === 'GET') return send(res, 200, await queueState());
@@ -212,6 +221,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     let p = decodeURIComponent(url.pathname);
+    if (p.startsWith('/music/')) {
+      const f = path.normalize(path.join(MUSIC, p.slice(7)));
+      const type = MUSIC_EXT[path.extname(f).toLowerCase()];
+      if (!f.startsWith(MUSIC + path.sep) || !type) return send(res, 403, 'Yasak', 'text/plain');
+      res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
+      return res.end(await readFile(f));
+    }
     if (p === '/') p = '/index.html';
     const file = path.normalize(path.join(PUBLIC, p));
     if (!file.startsWith(PUBLIC + path.sep)) return send(res, 403, 'Yasak', 'text/plain');

@@ -1,22 +1,39 @@
 // Tüm sesler Web Audio ile sentezlenir (dosya yok, telif sorunu yok).
 // Ses hem hoparlöre hem de video kaydına (MediaStream) gider.
+import { Music } from './music.js';
+
 export class Sound {
   constructor() {
     const AC = window.AudioContext || window.webkitAudioContext;
     this.ctx = new AC();
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.9;
+    this.master.gain.value = 1.4; // Shorts için yeterince yüksek; kompresör + limiter kırpılmayı önler
+    // master → kompresör → kazanç → limiter → (hoparlör + video kaydı)
     this.comp = this.ctx.createDynamicsCompressor();
-    this.master.connect(this.comp);
+    this.comp.threshold.value = -18;
+    this.comp.knee.value = 12;
+    this.comp.ratio.value = 4;
+    this.comp.attack.value = 0.005;
+    this.comp.release.value = 0.2;
+    this.makeup = this.ctx.createGain();
+    this.makeup.gain.value = 0.95; // hedef ≈ -14 LUFS (YouTube normalizasyon seviyesi)
+    this.limiter = this.ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -3;
+    this.limiter.knee.value = 0;
+    this.limiter.ratio.value = 20;
+    this.limiter.attack.value = 0.001;
+    this.limiter.release.value = 0.1;
+    this.master.connect(this.comp).connect(this.makeup).connect(this.limiter);
     this.monitor = this.ctx.createGain();
-    this.comp.connect(this.monitor);
+    this.limiter.connect(this.monitor);
     this.monitor.connect(this.ctx.destination);
     this.dest = this.ctx.createMediaStreamDestination();
-    this.comp.connect(this.dest);
+    this.limiter.connect(this.dest);
     this.noise = this.makeNoise(3);
     this.lastBounce = 0;
     this.muted = false;
     this.ambient = null;
+    this.music = new Music(this.ctx, this.master);
   }
 
   get stream() {
@@ -25,7 +42,7 @@ export class Sound {
 
   setMuted(m) {
     this.muted = m;
-    this.master.gain.value = m ? 0 : 0.9;
+    this.master.gain.value = m ? 0 : 1.4;
   }
 
   // Kayıt sırasında hoparlörden duymak istemezsen
@@ -153,7 +170,25 @@ export class Sound {
     n.stop(now + attack + decay + 0.1);
   }
 
+  // ---- müzik (bkz. music.js)
+  prepareMusic(opts) {
+    return this.music.prepare(opts);
+  }
+
+  musicStart(seed) {
+    this.music.start(seed);
+  }
+
+  musicLevel(level) {
+    this.music.setLevel(level);
+  }
+
+  musicStop() {
+    this.music.stop();
+  }
+
   goal() {
+    this.music.duck();
     const now = this.ctx.currentTime;
     this.crowdSwell(0.7, 0.25, 2.6);
     this.crowdSwell(0.35, 0.15, 1.8, 1800);

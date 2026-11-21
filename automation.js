@@ -236,6 +236,10 @@ export class Automation {
       homeAdvantage: settings?.homeAdvantage !== false,
       lang: typeof settings?.lang === 'string' && settings.lang ? settings.lang : 'en',
       overrides: settings?.overrides && typeof settings.overrides === 'object' ? settings.overrides : {},
+      music: {
+        mode: ['synth', 'file', 'off'].includes(settings?.music?.mode) ? settings.music.mode : 'synth',
+        volume: Math.max(0, Math.min(1, Number.isFinite(+settings?.music?.volume) ? +settings.music.volume : 0.6)),
+      },
     };
     for (const j of drafts) {
       if (!MODES.includes(j.modeId)) {

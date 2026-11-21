@@ -46,6 +46,9 @@ export class Match {
     this.total = 0;
     this.done = false;
     this.ticks = 0;
+    // müzik girişle başlar (ses yoksa NULL_AUDIO, hiçbir şey olmaz)
+    if (!skipIntro) this.audio.musicStart?.(this.seed);
+    this.tensionAt = Math.floor(this.durationSteps * 0.75);
     this.game = this.mode.create({
       rng: this.rng,
       edge,
@@ -115,6 +118,7 @@ export class Match {
       case 'play':
         this.game.update(STEP);
         this.playSteps++;
+        if (this.playSteps === this.tensionAt) this.audio.musicLevel?.(2); // son dakikalar: müzik yoğunlaşır
         if (this.playSteps >= this.durationSteps) this.setPhase('final');
         break;
       case 'final':
@@ -145,12 +149,16 @@ export class Match {
     if (p === 'play') {
       this.audio.whistle?.();
       this.audio.ambientStart?.();
+      this.audio.musicLevel?.(1);
     } else if (p === 'final') {
       this.audio.finalWhistle?.();
+      this.audio.musicLevel?.(-1);
     } else if (p === 'outro') {
       this.audio.outro?.();
+      this.audio.musicLevel?.(3);
     } else if (p === 'done') {
       this.audio.ambientStop?.();
+      this.audio.musicStop?.();
     }
   }
 

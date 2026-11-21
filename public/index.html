@@ -61,6 +61,13 @@
                 <option value="0.8">Güçlü favori (%80 güç)</option>
               </select>
             </label>
+            <label>Müzik
+              <select id="qMusic">
+                <option value="synth">🎵 Dahili müzik (telifsiz)</option>
+                <option value="file">📁 music klasöründen</option>
+                <option value="off">Müzik yok</option>
+              </select>
+            </label>
             <label>Video ve YouTube dili <select id="qLang"></select></label>
             <label>Oyun süresi
               <select id="qDuration"><option value="30">30 sn</option><option value="45">45 sn</option><option value="60">60 sn</option></select>
@@ -156,6 +163,18 @@
           <small class="muted">0% = tamamen şans. Yüksek değerde güçlü takım daha avantajlı ama yine de kaybedebilir.</small>
           <div id="strengthInfo" class="strength-info"></div>
         </label>
+        <label>Arka plan müziği
+          <select id="musicMode">
+                <option value="synth">🎵 Dahili müzik (telifsiz)</option>
+                <option value="file">📁 music klasöründen</option>
+                <option value="off">Müzik yok</option>
+          </select>
+        </label>
+        <label>Müzik seviyesi: <b id="musicVolVal">60%</b>
+          <input id="musicVol" type="range" min="0" max="100" value="60" />
+        </label>
+        <small class="muted span2" id="musicHint">Dahili müzik her maçta araç tarafından yeniden bestelenir (farklı tempo/ton), telif sorunu yoktur.
+          “music klasöründen” seçersen aracın klasöründeki <code>music</code> klasörüne koyduğun parçalardan biri çalar (ör. YouTube Ses Kitaplığı'ndan indirdiklerin).</small>
         <label class="check"><input id="sound" type="checkbox" checked /> Ses ve efektler</label>
         <label class="check"><input id="monitor" type="checkbox" checked /> Kayıtta sesi duy</label>
         <label>Video dili
